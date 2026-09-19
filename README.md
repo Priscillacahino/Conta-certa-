@@ -98,15 +98,26 @@ saldo final:      R$ 1.258,72
 
 ## Migração histórica
 
-A versão 0.3 adiciona a importação local do histórico da planilha para o IndexedDB. A base analisada contém **136 competências entre maio/2015 e agosto/2026**. Dessas, **106 foram conciliadas automaticamente** e **30 permanecem sinalizadas para revisão**, sem correção silenciosa dos valores de origem.
+A versão 0.4 aprofunda a conciliação da planilha real, com **136 competências entre maio/2015 e agosto/2026**. O resultado atual da auditoria é:
 
-O arquivo com os dados reais é separado do código e fica na pasta local `private/`, ignorada pelo Git. Dessa forma, nomes, telefones e endereço do residencial não precisam ser publicados para que o aplicativo funcione. Após a importação, o painel mostra saldo mais recente, período coberto, competências conciliadas e pontos que ainda precisam de conferência.
+- **106 competências totalmente conciliadas**;
+- **16 competências com diferenças explicadas e documentadas**;
+- **12 competências classificadas como formato legado de 2019**, quando existia um controle auxiliar de fundo de reserva com lógica diferente da atual;
+- **2 competências ainda em revisão manual**: maio/2023 e agosto/2023, por diferenças de transporte de saldo sem lançamento explicativo identificado.
 
-Para a adimplência, a regra é conservadora: **ano incompleto, pagamento sem comprovação ou competência não conciliada bloqueiam a emissão automática da declaração**.
+A migração também passou a reconhecer a seção separada de **taxa extraordinária de maio/2021**, que explica o saldo de R$ 5.205,25 transportado para junho daquele ano. Pequenas diferenças aritméticas históricas são registradas como ajustes explícitos, nunca apagadas.
+
+O arquivo com os dados reais continua separado do código e fica na pasta local `private/`, ignorada pelo Git. Nomes, telefones, endereço e dados financeiros detalhados do residencial não precisam ser publicados para que o aplicativo funcione.
+
+### Regra reforçada para declarações
+
+O histórico importado é tratado como **referência financeira**, e não como prova automática suficiente de adimplência. Isso é proposital: uma planilha antiga pode registrar pagamentos sem possuir um cadastro completo de todas as obrigações, parcelamentos e taxas extraordinárias exigíveis.
+
+A emissão anual será autorizada somente pelo **livro de obrigações do Conta Certa**, no qual cada mensalidade, taxa extra ou parcelamento terá situação própria. Qualquer obrigação pendente bloqueia a declaração.
 
 ## Status
 
-🚧 **Em desenvolvimento — v0.3 (migração histórica).**
+🚧 **Em desenvolvimento — v0.4 (reconciliação histórica e endurecimento da adimplência).**
 
 A planilha histórica real será utilizada para validação e migração dos dados, sem expor nomes de moradores, telefones ou endereço completo nos dados públicos de demonstração.
 

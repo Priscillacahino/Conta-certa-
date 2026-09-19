@@ -88,7 +88,10 @@ function renderHistory(periods) {
   const box = $('#history-table');
   if (!periods.length) { box.innerHTML = '<p class="muted">Nenhum histórico importado.</p>'; return; }
   const rows = summarizeByYear(periods);
-  box.innerHTML = `<div class="responsive-table"><table><thead><tr><th>Ano</th><th>Meses</th><th>Receitas</th><th>Despesas</th><th>Saldo final</th><th>Conciliação</th></tr></thead><tbody>${rows.map(r => `<tr><td>${r.year}</td><td>${r.months}</td><td>${money(r.revenuesCents)}</td><td>${money(r.expensesCents)}</td><td>${money(r.closingBalanceCents)}</td><td><span class="status-badge ${r.review ? 'attention' : 'ok'}">${r.review ? `${r.review} mês(es) revisar` : 'Conciliado'}</span></td></tr>`).join('')}</tbody></table></div>`;
+  box.innerHTML = `<div class="responsive-table"><table><thead><tr><th>Ano</th><th>Meses</th><th>Receitas</th><th>Despesas</th><th>Saldo final</th><th>Conciliação</th></tr></thead><tbody>${rows.map(r => {
+    const details = [r.ok ? `${r.ok} ok` : '', r.resolved ? `${r.resolved} explicada(s)` : '', r.legacy ? `${r.legacy} legado` : '', r.review ? `${r.review} revisar` : ''].filter(Boolean).join(' • ');
+    return `<tr><td>${r.year}</td><td>${r.months}</td><td>${money(r.revenuesCents)}</td><td>${money(r.expensesCents)}</td><td>${money(r.closingBalanceCents)}</td><td><span class="status-badge ${r.review ? 'attention' : 'ok'}">${r.review ? `${r.review} revisão manual` : 'Classificado'}</span><small class="table-note">${details}</small></td></tr>`;
+  }).join('')}</tbody></table></div>`;
 }
 
 function renderCompliance(periods, units) {
@@ -100,7 +103,15 @@ function renderCompliance(periods, units) {
   const year = Number(select.value);
   const results = units.map(unit => ({ unit, status: importedYearCertificateStatus({ periods, year, unitId: unit.id }) }));
   $('#compliance-list').innerHTML = results.map(({unit,status}) => {
-    const label = status.eligible ? 'Elegível pelos dados importados' : status.reason === 'ANO_INCOMPLETO' ? 'Bloqueada: ano incompleto' : status.reason === 'IMPORTACAO_REQUER_REVISAO' ? 'Bloqueada: há mês não conciliado' : 'Bloqueada: pagamento não comprovado';
+    const label = status.reason === 'HISTORICO_REFERENCIAL'
+      ? 'Histórico de referência — emissão automática desabilitada'
+      : status.eligible
+        ? 'Elegível'
+        : status.reason === 'ANO_INCOMPLETO'
+          ? 'Bloqueada: ano incompleto'
+          : status.reason === 'IMPORTACAO_REQUER_REVISAO'
+            ? 'Bloqueada: há evidência não validada'
+            : 'Bloqueada: pagamento não comprovado';
     return `<article class="compliance-row"><div><strong>${unit.label ?? unit.id}</strong><span>${unit.responsibleName ?? ''}</span></div><span class="status-badge ${status.eligible?'ok':'attention'}">${label}</span></article>`;
   }).join('');
 }
@@ -118,8 +129,8 @@ async function refreshImportedData() {
   $('#kpi-balance-period').textContent = meta.latestPeriodId ?? '—';
   $('#kpi-periods').textContent = meta.periodCount;
   $('#kpi-range').textContent = `${meta.startPeriodId ?? '—'} até ${meta.latestPeriodId ?? '—'}`;
-  $('#kpi-reconciled').textContent = meta.reconciledCount;
-  $('#kpi-review').textContent = `${meta.reviewCount} para revisar`;
+  $('#kpi-reconciled').textContent = meta.classifiedCount ?? meta.reconciledCount;
+  $('#kpi-review').textContent = `${meta.reviewCount} revisão manual • ${meta.resolvedCount ?? 0} explicada(s) • ${meta.legacyCount ?? 0} legado`;
   $('#kpi-units').textContent = units.length;
   renderUnits(units); renderHistory(periods); renderCompliance(periods, units);
   if (meta.latestBalanceCents != null) $('#cash-balance').value = (meta.latestBalanceCents/100).toFixed(2);
@@ -135,7 +146,7 @@ async function importSelectedFile() {
     validateImportBundle(bundle);
     const summary = summarizeImport(bundle);
     await replaceImportedData(bundle, summary);
-    $('#import-feedback').textContent = `Importação concluída: ${summary.periodCount} competências, ${summary.reviewCount} para revisão.`;
+    $('#import-feedback').textContent = `Importação concluída: ${summary.periodCount} competências, ${summary.classifiedCount} classificadas e ${summary.reviewCount} em revisão manual.`;
     await refreshImportedData();
   } catch (error) {
     $('#import-feedback').textContent = `Importação não realizada: ${error.message}`;

@@ -1,4 +1,4 @@
-const CACHE = 'conta-certa-v0.3.0';
+const CACHE = 'conta-certa-v0.4.0';
 const ASSETS = [
   './','./index.html','./styles.css','./manifest.webmanifest','./assets/icon.svg',
   './src/app.js','./src/db.js','./src/finance.js','./src/projections.js','./src/compliance.js','./src/migration.js'

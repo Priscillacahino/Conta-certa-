@@ -87,3 +87,4 @@ footer { text-align: center; color: #7a8796; font-size: .8rem; padding: 6px 18px
 .table-card{padding:0}.table-card .responsive-table{padding:.5rem 1rem 1rem}.warning-notice{border-left-color:#c77900}.compliance-list{margin-top:1rem}
 select{width:100%;padding:.8rem;border:1px solid #cfd8e5;border-radius:12px;background:#fff;font:inherit;color:#21324a}
 @media(min-width:760px){.kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.app-nav{justify-content:center}}
+.table-note{display:block;margin-top:.25rem;color:#718096;white-space:nowrap}

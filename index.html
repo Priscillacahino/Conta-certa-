@@ -43,7 +43,7 @@
       <section class="kpi-grid">
         <article class="kpi"><span>Saldo mais recente</span><strong id="kpi-balance">—</strong><small id="kpi-balance-period">Sem histórico</small></article>
         <article class="kpi"><span>Competências importadas</span><strong id="kpi-periods">0</strong><small id="kpi-range">—</small></article>
-        <article class="kpi"><span>Conciliadas</span><strong id="kpi-reconciled">0</strong><small id="kpi-review">0 para revisar</small></article>
+        <article class="kpi"><span>Classificadas</span><strong id="kpi-reconciled">0</strong><small id="kpi-review">0 revisão manual</small></article>
         <article class="kpi"><span>Unidades</span><strong id="kpi-units">0</strong><small>cadastros locais</small></article>
       </section>
 
@@ -69,12 +69,12 @@
       <section class="card intro">
         <span class="eyebrow">Conciliação</span>
         <h2>Histórico financeiro</h2>
-        <p>Os meses divergentes continuam visíveis e não são silenciosamente tratados como corretos.</p>
+        <p>As diferenças históricas são classificadas como conciliadas, explicadas, legado ou revisão manual. Nenhuma correção é escondida.</p>
       </section>
       <section class="card table-card">
         <div id="history-table"><p class="muted">Nenhum histórico importado.</p></div>
       </section>
-      <section class="notice warning-notice"><strong>Segurança:</strong> competências marcadas para revisão não devem ser usadas como prova automática de adimplência até serem conciliadas.</section>
+      <section class="notice warning-notice"><strong>Segurança:</strong> a planilha histórica é referência financeira. Declarações de adimplência serão emitidas pelo livro de obrigações do Conta Certa, e não apenas pela presença de pagamentos na planilha antiga.</section>
     </section>
 
     <section class="view" id="view-projections">
@@ -107,17 +107,17 @@
       <section class="card intro">
         <span class="eyebrow">Controle rigoroso</span>
         <h2>Adimplência anual</h2>
-        <p>A importação histórica serve como evidência. A declaração só poderá ser emitida quando o exercício estiver completo, sem pendências e sem meses não conciliados.</p>
+        <p>A importação histórica serve como referência. A declaração automática será liberada somente pelo livro de obrigações do Conta Certa, com todas as cobranças exigíveis quitadas.</p>
       </section>
       <section class="card">
         <label>Ano de referência<select id="compliance-year"></select></label>
         <div id="compliance-list" class="compliance-list"><p class="muted">Importe o histórico para avaliar as unidades.</p></div>
       </section>
-      <section class="notice"><strong>Integridade:</strong> não existe liberação manual de declaração. Dados incompletos, pendências ou divergências de migração bloqueiam a emissão.</section>
+      <section class="notice"><strong>Integridade:</strong> não existe liberação manual de declaração. A emissão exige obrigações estruturadas, exercício completo e ausência de pendências; o histórico antigo, sozinho, não autoriza o documento.</section>
     </section>
   </main>
 
-  <footer>Conta Certa • v0.3 — migração histórica</footer>
+  <footer>Conta Certa • v0.4 — reconciliação histórica</footer>
   <script type="module" src="src/app.js"></script>
 </body>
 </html>

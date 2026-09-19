@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "source": {
     "fileName": "demonstracao.json",
     "periodStart": "2026-07",
@@ -100,7 +100,9 @@
       },
       "reconciliation": {
         "status": "ok",
-        "issues": {}
+        "issues": {},
+        "blockingForFinancialReview": false,
+        "blockingForCompliance": true
       }
     },
     {
@@ -154,8 +156,14 @@
       },
       "reconciliation": {
         "status": "ok",
-        "issues": {}
+        "issues": {},
+        "blockingForFinancialReview": false,
+        "blockingForCompliance": true
       }
     }
-  ]
+  ],
+  "complianceEvidence": {
+    "mode": "history_reference_only",
+    "reason": "Dados de demonstração não constituem livro completo de obrigações."
+  }
 }
