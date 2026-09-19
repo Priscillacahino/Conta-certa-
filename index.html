@@ -20,71 +20,104 @@
     <div class="status-pill">Offline-first</div>
   </header>
 
+  <nav class="app-nav" aria-label="Áreas do aplicativo">
+    <button class="nav-button active" data-view="overview">Visão geral</button>
+    <button class="nav-button" data-view="history">Histórico</button>
+    <button class="nav-button" data-view="projections">Projeções</button>
+    <button class="nav-button" data-view="compliance">Adimplência</button>
+  </nav>
+
   <main>
-    <section class="card intro">
-      <h2>Projeção de gastos</h2>
-      <p>Registre orçamentos antes de assumir um compromisso. A projeção não altera o caixa real.</p>
-    </section>
-
-    <section class="card">
-      <div class="section-title">
-        <div>
-          <span class="eyebrow">Novo planejamento</span>
-          <h2>Serviço ou melhoria</h2>
-        </div>
-      </div>
-
-      <div class="form-grid">
-        <label class="wide">Nome do projeto
-          <input id="project-name" value="Serviço de fachada" placeholder="Ex.: Serviço de fachada">
-        </label>
-        <label>Saldo atual em caixa (R$)
-          <input id="cash-balance" type="number" min="0" step="0.01">
-        </label>
-        <label>Reserva mínima protegida (R$)
-          <input id="protected-reserve" type="number" min="0" step="0.01">
-        </label>
-        <label>Unidades ativas
-          <input id="active-units" type="number" min="1" step="1">
-        </label>
-      </div>
-
-      <div class="subsection">
+    <section class="view active" id="view-overview">
+      <section class="card intro">
         <div class="section-title compact">
-          <h3>Orçamentos recebidos</h3>
-          <button id="add-quote" class="secondary" type="button">+ Adicionar</button>
+          <div>
+            <span class="eyebrow">Base financeira</span>
+            <h2>Visão geral</h2>
+          </div>
+          <span id="import-state" class="status-badge neutral">Sem importação</span>
         </div>
-        <div id="quote-list"></div>
-      </div>
+        <p>Os dados reais ficam no seu aparelho. O arquivo privado não precisa ser publicado junto com o código.</p>
+      </section>
 
-      <div class="actions">
-        <button id="calculate" type="button">Calcular projeção</button>
-        <button id="save-projection" class="secondary" type="button">Salvar no aparelho</button>
-      </div>
-      <p id="save-feedback" class="feedback" role="status"></p>
+      <section class="kpi-grid">
+        <article class="kpi"><span>Saldo mais recente</span><strong id="kpi-balance">—</strong><small id="kpi-balance-period">Sem histórico</small></article>
+        <article class="kpi"><span>Competências importadas</span><strong id="kpi-periods">0</strong><small id="kpi-range">—</small></article>
+        <article class="kpi"><span>Conciliadas</span><strong id="kpi-reconciled">0</strong><small id="kpi-review">0 para revisar</small></article>
+        <article class="kpi"><span>Unidades</span><strong id="kpi-units">0</strong><small>cadastros locais</small></article>
+      </section>
+
+      <section class="card">
+        <div class="section-title compact">
+          <div><span class="eyebrow">Migração</span><h2>Importar histórico</h2></div>
+        </div>
+        <p>Selecione o arquivo JSON privado gerado a partir da planilha. A importação substitui a base histórica local, sem alterar o arquivo original.</p>
+        <label class="file-picker">Arquivo de importação (.json)
+          <input id="import-file" type="file" accept="application/json,.json">
+        </label>
+        <div class="actions"><button id="import-button" type="button">Importar no aparelho</button></div>
+        <p id="import-feedback" class="feedback" role="status"></p>
+      </section>
+
+      <section class="card">
+        <h2>Unidades cadastradas</h2>
+        <div id="units-list"><p class="muted">Importe a base para visualizar as unidades.</p></div>
+      </section>
     </section>
 
-    <section class="card">
-      <div class="section-title compact">
-        <h2>Resultado</h2>
-        <span class="muted">Comparação individual por orçamento</span>
-      </div>
-      <div id="projection-result" class="result-grid">
-        <p class="muted">Preencha um orçamento e toque em “Calcular projeção”.</p>
-      </div>
+    <section class="view" id="view-history">
+      <section class="card intro">
+        <span class="eyebrow">Conciliação</span>
+        <h2>Histórico financeiro</h2>
+        <p>Os meses divergentes continuam visíveis e não são silenciosamente tratados como corretos.</p>
+      </section>
+      <section class="card table-card">
+        <div id="history-table"><p class="muted">Nenhum histórico importado.</p></div>
+      </section>
+      <section class="notice warning-notice"><strong>Segurança:</strong> competências marcadas para revisão não devem ser usadas como prova automática de adimplência até serem conciliadas.</section>
     </section>
 
-    <section class="card">
-      <h2>Projeções salvas</h2>
-      <div id="projection-history"></div>
+    <section class="view" id="view-projections">
+      <section class="card intro">
+        <h2>Projeção de gastos</h2>
+        <p>Registre orçamentos antes de assumir um compromisso. A projeção não altera o caixa real.</p>
+      </section>
+
+      <section class="card">
+        <div class="section-title"><div><span class="eyebrow">Novo planejamento</span><h2>Serviço ou melhoria</h2></div></div>
+        <div class="form-grid">
+          <label class="wide">Nome do projeto<input id="project-name" value="Serviço de fachada" placeholder="Ex.: Serviço de fachada"></label>
+          <label>Saldo atual em caixa (R$)<input id="cash-balance" type="number" min="0" step="0.01"></label>
+          <label>Reserva mínima protegida (R$)<input id="protected-reserve" type="number" min="0" step="0.01"></label>
+          <label>Unidades ativas<input id="active-units" type="number" min="1" step="1"></label>
+        </div>
+        <div class="subsection">
+          <div class="section-title compact"><h3>Orçamentos recebidos</h3><button id="add-quote" class="secondary" type="button">+ Adicionar</button></div>
+          <div id="quote-list"></div>
+        </div>
+        <div class="actions"><button id="calculate" type="button">Calcular projeção</button><button id="save-projection" class="secondary" type="button">Salvar no aparelho</button></div>
+        <p id="save-feedback" class="feedback" role="status"></p>
+      </section>
+
+      <section class="card"><div class="section-title compact"><h2>Resultado</h2><span class="muted">Comparação individual por orçamento</span></div><div id="projection-result" class="result-grid"><p class="muted">Preencha um orçamento e toque em “Calcular projeção”.</p></div></section>
+      <section class="card"><h2>Projeções salvas</h2><div id="projection-history"></div></section>
     </section>
 
-    <section class="notice">
-      <strong>Importante:</strong> o Conta Certa apresenta cálculos de apoio. Aprovação de obras, contratação de fornecedores e criação de cobranças continuam sendo decisões da gestão conforme as regras do residencial.
+    <section class="view" id="view-compliance">
+      <section class="card intro">
+        <span class="eyebrow">Controle rigoroso</span>
+        <h2>Adimplência anual</h2>
+        <p>A importação histórica serve como evidência. A declaração só poderá ser emitida quando o exercício estiver completo, sem pendências e sem meses não conciliados.</p>
+      </section>
+      <section class="card">
+        <label>Ano de referência<select id="compliance-year"></select></label>
+        <div id="compliance-list" class="compliance-list"><p class="muted">Importe o histórico para avaliar as unidades.</p></div>
+      </section>
+      <section class="notice"><strong>Integridade:</strong> não existe liberação manual de declaração. Dados incompletos, pendências ou divergências de migração bloqueiam a emissão.</section>
     </section>
   </main>
 
-  <footer>Conta Certa • versão inicial de desenvolvimento</footer>
+  <footer>Conta Certa • v0.3 — migração histórica</footer>
   <script type="module" src="src/app.js"></script>
 </body>
 </html>

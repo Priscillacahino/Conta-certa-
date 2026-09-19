@@ -70,3 +70,20 @@ footer { text-align: center; color: #7a8796; font-size: .8rem; padding: 6px 18px
   .quote-row label:first-child { grid-column: 1 / -1; }
   .actions button { width: 100%; }
 }
+
+/* v0.3 — navegação, migração e histórico */
+.app-nav{display:flex;gap:.5rem;overflow:auto;padding:.75rem 1rem;background:#fff;border-bottom:1px solid #dfe6ef;position:sticky;top:0;z-index:5}
+.nav-button{white-space:nowrap;background:#eef3f9;color:#183153;border:0;border-radius:999px;padding:.7rem 1rem;font-weight:700;cursor:pointer}
+.nav-button.active{background:#183153;color:#fff}
+.view{display:none}.view.active{display:block}
+.kpi-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem;margin:1rem 0}
+.kpi{background:#fff;border:1px solid #e3e9f1;border-radius:16px;padding:1rem;display:flex;flex-direction:column;gap:.25rem;box-shadow:0 8px 28px rgba(24,49,83,.05)}
+.kpi span,.kpi small{color:#66758a}.kpi strong{font-size:1.45rem;color:#183153}
+.status-badge{display:inline-flex;align-items:center;width:max-content;padding:.35rem .65rem;border-radius:999px;font-size:.78rem;font-weight:800}
+.status-badge.ok{background:#e7f6ee;color:#17633a}.status-badge.attention{background:#fff1df;color:#8a4b00}.status-badge.neutral{background:#edf1f6;color:#58677b}
+.file-picker{display:flex;flex-direction:column;gap:.45rem}.file-picker input{padding:.8rem;background:#f7f9fc;border:1px dashed #a9b7c9;border-radius:12px}
+.unit-row,.compliance-row{display:flex;justify-content:space-between;gap:1rem;align-items:center;padding:.85rem 0;border-bottom:1px solid #edf1f6}.unit-row:last-child,.compliance-row:last-child{border-bottom:0}.unit-row div,.compliance-row div{display:flex;flex-direction:column;gap:.2rem}.unit-row span,.compliance-row span:not(.status-badge){color:#66758a;font-size:.9rem}
+.responsive-table{overflow:auto}.responsive-table table{width:100%;border-collapse:collapse;min-width:720px}.responsive-table th,.responsive-table td{text-align:left;padding:.8rem;border-bottom:1px solid #e7ecf2}.responsive-table th{font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;color:#58677b}.responsive-table td{font-variant-numeric:tabular-nums}
+.table-card{padding:0}.table-card .responsive-table{padding:.5rem 1rem 1rem}.warning-notice{border-left-color:#c77900}.compliance-list{margin-top:1rem}
+select{width:100%;padding:.8rem;border:1px solid #cfd8e5;border-radius:12px;background:#fff;font:inherit;color:#21324a}
+@media(min-width:760px){.kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.app-nav{justify-content:center}}

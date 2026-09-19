@@ -95,9 +95,18 @@ resultado do mês: R$   326,49
 saldo final:      R$ 1.258,72
 ```
 
+
+## Migração histórica
+
+A versão 0.3 adiciona a importação local do histórico da planilha para o IndexedDB. A base analisada contém **136 competências entre maio/2015 e agosto/2026**. Dessas, **106 foram conciliadas automaticamente** e **30 permanecem sinalizadas para revisão**, sem correção silenciosa dos valores de origem.
+
+O arquivo com os dados reais é separado do código e fica na pasta local `private/`, ignorada pelo Git. Dessa forma, nomes, telefones e endereço do residencial não precisam ser publicados para que o aplicativo funcione. Após a importação, o painel mostra saldo mais recente, período coberto, competências conciliadas e pontos que ainda precisam de conferência.
+
+Para a adimplência, a regra é conservadora: **ano incompleto, pagamento sem comprovação ou competência não conciliada bloqueiam a emissão automática da declaração**.
+
 ## Status
 
-🚧 **Em desenvolvimento.**
+🚧 **Em desenvolvimento — v0.3 (migração histórica).**
 
 A planilha histórica real será utilizada para validação e migração dos dados, sem expor nomes de moradores, telefones ou endereço completo nos dados públicos de demonstração.
 

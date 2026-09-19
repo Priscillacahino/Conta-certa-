@@ -1,7 +1,11 @@
 const DB_NAME = 'conta-certa';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const SETTINGS = 'settings';
 const PROJECTIONS = 'projections';
+const RESIDENTIAL = 'residential';
+const UNITS = 'units';
+const PERIODS = 'periods';
+const IMPORT_META = 'importMeta';
 
 function openDb() {
   return new Promise((resolve, reject) => {
@@ -10,48 +14,68 @@ function openDb() {
       const db = request.result;
       if (!db.objectStoreNames.contains(SETTINGS)) db.createObjectStore(SETTINGS);
       if (!db.objectStoreNames.contains(PROJECTIONS)) db.createObjectStore(PROJECTIONS, { keyPath: 'id' });
+      if (!db.objectStoreNames.contains(RESIDENTIAL)) db.createObjectStore(RESIDENTIAL, { keyPath: 'id' });
+      if (!db.objectStoreNames.contains(UNITS)) db.createObjectStore(UNITS, { keyPath: 'id' });
+      if (!db.objectStoreNames.contains(PERIODS)) db.createObjectStore(PERIODS, { keyPath: 'id' });
+      if (!db.objectStoreNames.contains(IMPORT_META)) db.createObjectStore(IMPORT_META);
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
 }
 
-export async function getSetting(key, fallback = null) {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(SETTINGS, 'readonly');
-    const req = tx.objectStore(SETTINGS).get(key);
+function getFrom(store, key, fallback = null) {
+  return openDb().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).get(key);
     req.onsuccess = () => resolve(req.result ?? fallback);
     req.onerror = () => reject(req.error);
-  });
+  }));
 }
 
-export async function setSetting(key, value) {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(SETTINGS, 'readwrite');
-    tx.objectStore(SETTINGS).put(value, key);
-    tx.oncomplete = () => resolve();
+function putTo(store, value, key) {
+  return openDb().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readwrite');
+    key === undefined ? tx.objectStore(store).put(value) : tx.objectStore(store).put(value, key);
+    tx.oncomplete = () => resolve(value);
     tx.onerror = () => reject(tx.error);
-  });
+  }));
 }
 
-export async function saveProjection(projection) {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(PROJECTIONS, 'readwrite');
-    tx.objectStore(PROJECTIONS).put(projection);
-    tx.oncomplete = () => resolve(projection);
-    tx.onerror = () => reject(tx.error);
-  });
-}
-
-export async function listProjections() {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(PROJECTIONS, 'readonly');
-    const req = tx.objectStore(PROJECTIONS).getAll();
+function getAll(store) {
+  return openDb().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).getAll();
     req.onsuccess = () => resolve(req.result ?? []);
     req.onerror = () => reject(req.error);
+  }));
+}
+
+export const getSetting = (key, fallback = null) => getFrom(SETTINGS, key, fallback);
+export const setSetting = (key, value) => putTo(SETTINGS, value, key);
+export const saveProjection = projection => putTo(PROJECTIONS, projection);
+export const listProjections = () => getAll(PROJECTIONS);
+export const getResidential = () => getAll(RESIDENTIAL).then(items => items[0] ?? null);
+export const listUnits = () => getAll(UNITS);
+export const listPeriods = () => getAll(PERIODS);
+export const getImportMeta = () => getFrom(IMPORT_META, 'current', null);
+
+export async function replaceImportedData(bundle, summary) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([RESIDENTIAL, UNITS, PERIODS, IMPORT_META], 'readwrite');
+    const residential = tx.objectStore(RESIDENTIAL);
+    const units = tx.objectStore(UNITS);
+    const periods = tx.objectStore(PERIODS);
+    const meta = tx.objectStore(IMPORT_META);
+
+    residential.clear(); units.clear(); periods.clear();
+    residential.put(bundle.residential);
+    for (const unit of bundle.units) units.put(unit);
+    for (const period of bundle.periods) periods.put(period);
+    meta.put({ ...summary, importedAt: new Date().toISOString(), source: bundle.source ?? null }, 'current');
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
   });
 }

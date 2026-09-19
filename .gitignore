@@ -1,0 +1,7 @@
+# Dados reais do residencial: nunca publicar
+private/
+*.private.json
+
+# Arquivos locais
+.DS_Store
+Thumbs.db
