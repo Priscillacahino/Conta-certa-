@@ -1,5 +1,5 @@
 const DB_NAME = 'conta-certa';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const SETTINGS = 'settings';
 const PROJECTIONS = 'projections';
 const RESIDENTIAL = 'residential';
@@ -8,6 +8,8 @@ const PERIODS = 'periods';
 const IMPORT_META = 'importMeta';
 const OBLIGATIONS = 'obligations';
 const PAYMENTS = 'payments';
+const CERTIFICATES = 'certificates';
+const CERTIFICATE_EVENTS = 'certificateEvents';
 
 function openDb() {
   return new Promise((resolve, reject) => {
@@ -22,6 +24,8 @@ function openDb() {
       if (!db.objectStoreNames.contains(IMPORT_META)) db.createObjectStore(IMPORT_META);
       if (!db.objectStoreNames.contains(OBLIGATIONS)) db.createObjectStore(OBLIGATIONS, { keyPath: 'id' });
       if (!db.objectStoreNames.contains(PAYMENTS)) db.createObjectStore(PAYMENTS, { keyPath: 'id' });
+      if (!db.objectStoreNames.contains(CERTIFICATES)) db.createObjectStore(CERTIFICATES, { keyPath: 'certificateId' });
+      if (!db.objectStoreNames.contains(CERTIFICATE_EVENTS)) db.createObjectStore(CERTIFICATE_EVENTS, { keyPath: 'id' });
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
@@ -66,6 +70,8 @@ export const getImportMeta = () => getFrom(IMPORT_META, 'current', null);
 export const saveObligation = obligation => putTo(OBLIGATIONS, obligation);
 export const listObligations = () => getAll(OBLIGATIONS);
 export const listPayments = () => getAll(PAYMENTS);
+export const listCertificates = () => getAll(CERTIFICATES);
+export const listCertificateEvents = () => getAll(CERTIFICATE_EVENTS);
 
 export async function saveObligations(obligations = []) {
   const db = await openDb();
@@ -86,6 +92,48 @@ export async function registerObligationPayment({ obligation, payment }) {
     tx.objectStore(PAYMENTS).put(payment);
     tx.oncomplete = () => resolve({ obligation, payment });
     tx.onerror = () => reject(tx.error);
+  });
+}
+
+
+export async function saveIssuedCertificate(record) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([CERTIFICATES, CERTIFICATE_EVENTS], 'readwrite');
+    tx.objectStore(CERTIFICATES).add(record);
+    tx.objectStore(CERTIFICATE_EVENTS).add({
+      id: crypto.randomUUID(), certificateId: record.certificateId, type: 'ISSUED',
+      at: record.issuedAt, unitId: record.unitId, year: record.year, contentHash: record.contentHash, pdfHash: record.pdfHash,
+    });
+    tx.oncomplete = () => resolve(record);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function revokeStoredCertificate(certificateId, reason, revokedAt = new Date().toISOString()) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([CERTIFICATES, CERTIFICATE_EVENTS], 'readwrite');
+    const certStore = tx.objectStore(CERTIFICATES);
+    const req = certStore.get(certificateId);
+    let updated = null;
+    req.onsuccess = () => {
+      const current = req.result;
+      if (!current) { tx.abort(); reject(new Error('DECLARACAO_NAO_ENCONTRADA')); return; }
+      if (current.status !== 'VALID') { tx.abort(); reject(new Error('DECLARACAO_JA_INVALIDA')); return; }
+      const cleanReason = String(reason ?? '').trim();
+      if (!cleanReason) { tx.abort(); reject(new Error('MOTIVO_REVOGACAO_OBRIGATORIO')); return; }
+      updated = { ...current, status: 'REVOKED', revokedAt, revocationReason: cleanReason };
+      certStore.put(updated);
+      tx.objectStore(CERTIFICATE_EVENTS).add({
+        id: crypto.randomUUID(), certificateId, type: 'REVOKED', at: revokedAt, reason: cleanReason,
+        unitId: current.unitId, year: current.year,
+      });
+    };
+    req.onerror = () => reject(req.error);
+    tx.oncomplete = () => resolve(updated);
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => { if (!updated) return; };
   });
 }
 

@@ -74,13 +74,19 @@ Parcelamentos recebem tratamento rigoroso. Cada parcela é registrada individual
 
 Veja também: [`docs/OBRIGACOES.md`](docs/OBRIGACOES.md).
 
-## Adimplência anual
+## Adimplência anual e declaração protegida
 
 A declaração anual não pode ser criada manualmente. O motor verifica todas as obrigações exigíveis do exercício de cada unidade. Havendo qualquer pendência, a emissão é bloqueada.
 
-Os documentos emitidos serão identificados e preservados com mecanismos de integridade, incluindo ID único, versão, registro de emissão e hash criptográfico. Uma declaração emitida não é reescrita: qualquer correção deverá ocorrer por revogação e nova emissão, preservando o histórico.
+Na versão 0.6, o fluxo completo de emissão já possui PDF gerado localmente, ID único, código de validação, QR Code, SHA-256 do conteúdo, SHA-256 do arquivo PDF, histórico local e revogação. O PDF original fica preservado no IndexedDB; qualquer arquivo alterado deixa de corresponder ao hash registrado.
 
-A entrega ao responsável da unidade será tratada separadamente da emissão. A geração pode funcionar localmente; o envio totalmente automático para outro telefone depende de um canal externo de comunicação.
+Uma declaração emitida não é reescrita. Correções exigem revogação do documento anterior e nova emissão, com outro identificador e novos hashes. O aplicativo também permite carregar um PDF recebido para comparar seu SHA-256 com o original preservado.
+
+A data de fechamento anual é configurável. Se a PWA estiver fechada no dia definido, não há garantia de execução em segundo plano; ao ser aberta na data ou depois, o sistema pode gerar em lote os documentos ainda não emitidos para unidades elegíveis.
+
+A entrega usa a folha de compartilhamento nativa do celular. Envio completamente automático para um número específico de WhatsApp/SMS continua dependendo de um serviço externo de mensageria.
+
+Veja também: [`docs/DECLARACOES_ADIMPLENCIA.md`](docs/DECLARACOES_ADIMPLENCIA.md).
 
 ## Arquitetura do MVP
 
@@ -129,7 +135,7 @@ A emissão anual será autorizada somente pelo **livro de obrigações do Conta 
 
 ## Status
 
-🚧 **Em desenvolvimento — v0.5 (livro de obrigações e base oficial da adimplência).**
+🚧 **Em desenvolvimento — v0.6 (emissão, integridade, validação e revogação de declarações).**
 
 A planilha histórica real será utilizada para validação e migração dos dados, sem expor nomes de moradores, telefones ou endereço completo nos dados públicos de demonstração.
 

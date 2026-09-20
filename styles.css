@@ -98,3 +98,21 @@ select{width:100%;padding:.8rem;border:1px solid #cfd8e5;border-radius:12px;back
 .obligation-actions{display:flex;align-items:flex-end;flex-direction:column;gap:.5rem}
 .small-button{padding:.55rem .75rem;font-size:.8rem;background:#eaf0f7;color:#183153}
 @media(max-width:620px){.obligation-kpis{grid-template-columns:1fr}.obligation-row{grid-template-columns:1fr}.obligation-actions{align-items:flex-start}.small-button{width:100%}}
+
+
+/* v0.6 — emissão, validação e revogação de declarações */
+.compliance-actions{display:flex;align-items:flex-end;gap:.5rem;flex-direction:column}
+.certificate-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1rem;padding:1rem 0;border-bottom:1px solid #edf1f6}
+.certificate-row:last-child{border-bottom:0}
+.certificate-main{display:flex;flex-direction:column;gap:.28rem;min-width:0}
+.certificate-main span,.certificate-main small{color:#66758a;overflow-wrap:anywhere}
+.certificate-actions{display:flex;flex-direction:column;align-items:stretch;gap:.45rem;min-width:130px}
+.danger-button{background:#f8e8e8!important;color:#8a2424!important}
+.revoked-note{color:#9a3131!important;font-weight:700}
+#validation-feedback{padding-top:.25rem}
+@media(max-width:620px){.certificate-row{grid-template-columns:1fr}.certificate-actions,.compliance-actions{align-items:stretch}.certificate-actions button,.compliance-actions button{width:100%}}
+
+/* v0.7 — identidade visual oficial */
+.brand-header{display:flex;align-items:center;gap:14px;min-width:0}
+.brand-app-icon{width:72px;height:72px;border-radius:18px;object-fit:cover;box-shadow:0 8px 24px rgba(0,0,0,.18);border:2px solid rgba(255,255,255,.28);flex:0 0 auto}
+@media(max-width:620px){.brand-app-icon{width:58px;height:58px;border-radius:15px}.brand-header{gap:10px}}

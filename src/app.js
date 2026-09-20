@@ -3,9 +3,11 @@ import {
   getSetting, setSetting, saveProjection, listProjections,
   replaceImportedData, getImportMeta, getResidential, listUnits, listPeriods,
   saveObligation, saveObligations, listObligations, registerObligationPayment,
+  listCertificates, saveIssuedCertificate, revokeStoredCertificate,
 } from './db.js';
 import { validateImportBundle, summarizeImport, summarizeByYear } from './migration.js';
-import { evaluateAnnualCompliance } from './compliance.js';
+import { evaluateAnnualCompliance, lastWeekdayOfYear } from './compliance.js';
+import { issueCertificateArtifact, verifyCertificateRecord, base64ToBytes } from './certificates.js';
 import {
   normalizeObligation, ledgerSummary, createMonthlyObligations,
   applyPayment, outstandingCents,
@@ -18,6 +20,8 @@ const $ = selector => document.querySelector(selector);
 let importedPeriods = [];
 let importedUnits = [];
 let ledger = [];
+let residentialData = null;
+let certificates = [];
 
 function setView(name) {
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === `view-${name}`));
@@ -135,8 +139,12 @@ function renderObligations() {
 }
 
 async function refreshLedger() {
-  ledger = (await listObligations()).map(normalizeObligation);
+  [ledger, certificates] = await Promise.all([
+    listObligations().then(items => items.map(normalizeObligation)),
+    listCertificates(),
+  ]);
   renderObligations();
+  renderCertificateHistory();
   renderLedgerCompliance();
 }
 
@@ -199,6 +207,159 @@ async function payObligation(id) {
   }
 }
 
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
+}
+
+function activeCertificate(unitId, year) {
+  return certificates.find(c => String(c.unitId) === String(unitId) && Number(c.year) === Number(year) && c.status === 'VALID') ?? null;
+}
+
+function certificatePhones(unit) {
+  return (unit?.contacts ?? []).filter(c => c.type === 'phone' && c.active !== false && c.purpose !== 'disabled').map(c => c.value);
+}
+
+function downloadBytes(bytes, fileName, mime = 'application/pdf') {
+  const blob = new Blob([bytes], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url; link.download = fileName; document.body.appendChild(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function downloadCertificate(certificateId) {
+  const record = certificates.find(c => c.certificateId === certificateId);
+  if (!record) return;
+  downloadBytes(base64ToBytes(record.pdfBase64), record.fileName);
+}
+
+async function shareCertificate(certificateId) {
+  const record = certificates.find(c => c.certificateId === certificateId);
+  if (!record) return;
+  const unit = importedUnits.find(u => String(u.id) === String(record.unitId));
+  const phones = certificatePhones(unit);
+  const bytes = base64ToBytes(record.pdfBase64);
+  const file = new File([bytes], record.fileName, { type: 'application/pdf' });
+  const text = `Declaração de adimplência ${record.year} - ${record.unitLabel}. Destino cadastrado: ${phones.join(' / ') || 'sem telefone cadastrado'}.`;
+  try {
+    if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
+      await navigator.share({ title: 'Conta Certa - Declaração de adimplência', text, files: [file] });
+      $('#certificate-feedback').textContent = 'Compartilhamento aberto no aparelho. Confirme o aplicativo e o destinatário.';
+    } else {
+      downloadBytes(bytes, record.fileName);
+      $('#certificate-feedback').textContent = 'Seu navegador não permite compartilhar o PDF diretamente. O arquivo foi baixado.';
+    }
+  } catch (error) {
+    if (error?.name !== 'AbortError') $('#certificate-feedback').textContent = `Compartilhamento não concluído: ${error.message}`;
+  }
+}
+
+function renderCertificateHistory() {
+  const box = $('#certificate-history');
+  const validation = $('#validation-certificate');
+  const ordered = [...certificates].sort((a,b) => String(b.issuedAt).localeCompare(String(a.issuedAt)));
+  validation.innerHTML = ordered.length ? ordered.map(c => `<option value="${escapeHtml(c.certificateId)}">${escapeHtml(c.unitLabel)} - ${c.year} - ${escapeHtml(c.certificateId)}</option>`).join('') : '<option value="">Nenhuma declaração</option>';
+  if (!ordered.length) { box.innerHTML = '<p class="muted">Nenhuma declaração emitida.</p>'; return; }
+  box.innerHTML = ordered.map(c => {
+    const unit = importedUnits.find(u => String(u.id) === String(c.unitId));
+    const phones = certificatePhones(unit);
+    const revoked = c.status === 'REVOKED';
+    return `<article class="certificate-row">
+      <div class="certificate-main"><strong>${escapeHtml(c.unitLabel)} • ${c.year}</strong><span>${escapeHtml(c.certificateId)}</span><small>Emitida: ${new Date(c.issuedAt).toLocaleString('pt-BR')} • Validação: ${escapeHtml(c.verificationCode)}</small><small>Destinatário(s): ${escapeHtml(phones.join(' / ') || 'telefone não cadastrado')}</small>${revoked ? `<small class="revoked-note">Revogada: ${escapeHtml(c.revocationReason)} • ${new Date(c.revokedAt).toLocaleString('pt-BR')}</small>` : ''}</div>
+      <div class="certificate-actions"><span class="status-badge ${revoked ? 'attention' : 'ok'}">${revoked ? 'REVOGADA' : 'VÁLIDA'}</span><button class="small-button download-certificate" data-id="${escapeHtml(c.certificateId)}" type="button">Baixar PDF</button>${revoked ? '' : `<button class="small-button share-certificate" data-id="${escapeHtml(c.certificateId)}" type="button">Compartilhar</button><button class="small-button danger-button revoke-certificate" data-id="${escapeHtml(c.certificateId)}" type="button">Revogar</button>`}</div>
+    </article>`;
+  }).join('');
+  document.querySelectorAll('.download-certificate').forEach(b => b.addEventListener('click', () => downloadCertificate(b.dataset.id)));
+  document.querySelectorAll('.share-certificate').forEach(b => b.addEventListener('click', () => shareCertificate(b.dataset.id)));
+  document.querySelectorAll('.revoke-certificate').forEach(b => b.addEventListener('click', () => revokeCertificateUi(b.dataset.id)));
+}
+
+async function issueCertificateForUnit(unitId, year, { download = true } = {}) {
+  const unit = importedUnits.find(u => String(u.id) === String(unitId));
+  if (!residentialData || !unit) throw new Error('DADOS_CADASTRAIS_INCOMPLETOS');
+  if (activeCertificate(unitId, year)) throw new Error('DECLARACAO_VALIDA_JA_EXISTE');
+  const obligations = ledger.filter(o => String(o.unitId) === String(unitId));
+  const { record, pdfBytes } = await issueCertificateArtifact({
+    residential: residentialData,
+    unit: { id: unit.id, label: unit.label ?? `Apartamento ${unit.id}` },
+    responsible: { name: unit.responsibleName ?? 'Responsável cadastrado' },
+    year: Number(year), issuedAt: new Date().toISOString(), obligations,
+  });
+  await saveIssuedCertificate(record);
+  certificates = await listCertificates();
+  renderCertificateHistory();
+  renderLedgerCompliance();
+  if (download) downloadBytes(pdfBytes, record.fileName);
+  return record;
+}
+
+async function revokeCertificateUi(certificateId) {
+  const reason = window.prompt('Informe o motivo da revogação. O PDF original continuará registrado e não será editado:');
+  if (reason == null) return;
+  try {
+    await revokeStoredCertificate(certificateId, reason);
+    certificates = await listCertificates();
+    renderCertificateHistory(); renderLedgerCompliance();
+    $('#certificate-feedback').textContent = 'Declaração revogada. Para corrigir, faça uma nova emissão após ajustar os dados.';
+  } catch (error) {
+    $('#certificate-feedback').textContent = `Revogação não realizada: ${error.message}`;
+  }
+}
+
+async function issueEligibleBatch() {
+  const year = Number($('#compliance-year').value);
+  if (!year) return;
+  let issued = 0; let blocked = 0; let existing = 0;
+  for (const unit of importedUnits) {
+    if (activeCertificate(unit.id, year)) { existing += 1; continue; }
+    const obligations = ledger.filter(o => String(o.unitId) === String(unit.id));
+    const status = evaluateAnnualCompliance({ obligations, year });
+    if (!status.eligible) { blocked += 1; continue; }
+    try { await issueCertificateForUnit(unit.id, year, { download: false }); issued += 1; }
+    catch { blocked += 1; }
+  }
+  $('#certificate-feedback').textContent = `${issued} declaração(ões) gerada(s), ${existing} já existente(s) e ${blocked} unidade(s) bloqueada(s). Use o histórico para baixar ou compartilhar cada PDF.`;
+}
+
+async function syncClosingDate() {
+  const year = Number($('#compliance-year').value);
+  if (!year) { $('#annual-closing-date').value = ''; return; }
+  const saved = await getSetting(`annualClosingDate:${year}`, lastWeekdayOfYear(year));
+  $('#annual-closing-date').value = saved;
+}
+
+async function saveClosingDate() {
+  const year = Number($('#compliance-year').value);
+  const date = $('#annual-closing-date').value;
+  if (!year || !date) return;
+  await setSetting(`annualClosingDate:${year}`, date);
+  $('#certificate-feedback').textContent = `Fechamento anual de ${year} configurado para ${date}. Se o aplicativo for aberto nessa data ou depois, as unidades elegíveis poderão ser geradas em lote.`;
+}
+
+async function maybeAutoIssueCurrentYear() {
+  const year = new Date().getFullYear();
+  if (!ledger.some(o => Number(o.year) === year)) return;
+  const closing = await getSetting(`annualClosingDate:${year}`, lastWeekdayOfYear(year));
+  const today = new Date().toISOString().slice(0,10);
+  if (today < closing) return;
+  const previous = $('#compliance-year').value;
+  $('#compliance-year').value = String(year);
+  await issueEligibleBatch();
+  if (previous) $('#compliance-year').value = previous;
+}
+
+async function validateCertificateFile() {
+  const id = $('#validation-certificate').value;
+  const file = $('#validation-file').files?.[0];
+  const record = certificates.find(c => c.certificateId === id);
+  if (!record || !file) { $('#validation-feedback').textContent = 'Selecione a declaração e o PDF recebido.'; return; }
+  const check = await verifyCertificateRecord(record, new Uint8Array(await file.arrayBuffer()));
+  if (check.valid) $('#validation-feedback').textContent = 'ÍNTEGRO E VÁLIDO: o arquivo corresponde ao PDF emitido e o registro não está revogado.';
+  else if (record.status === 'REVOKED') $('#validation-feedback').textContent = 'ARQUIVO REGISTRADO, MAS DECLARAÇÃO REVOGADA. Não deve ser aceita como válida.';
+  else if (check.fileIntegrity === false) $('#validation-feedback').textContent = 'FALHA DE INTEGRIDADE: o PDF não corresponde ao hash do arquivo originalmente emitido.';
+  else $('#validation-feedback').textContent = 'FALHA DE INTEGRIDADE DO REGISTRO. A declaração não deve ser aceita.';
+}
+
 function renderLedgerCompliance() {
   const select = $('#compliance-year');
   const years = [...new Set(ledger.map(o => Number(o.year)).filter(Boolean))].sort((a,b)=>b-a);
@@ -213,15 +374,23 @@ function renderLedgerCompliance() {
   $('#compliance-list').innerHTML = importedUnits.map(unit => {
     const obligations = ledger.filter(o => String(o.unitId) === String(unit.id));
     const status = evaluateAnnualCompliance({ obligations, year });
-    let label = 'Elegível para emissão';
+    const existing = activeCertificate(unit.id, year);
+    let label = existing ? `Emitida: ${existing.certificateId}` : 'Elegível para emissão';
     if (!status.completeYear) label = 'Bloqueada: exercício incompleto no livro';
     else if (status.pending.length) label = `Bloqueada: ${status.pending.length} obrigação(ões) pendente(s)`;
-    return `<article class="compliance-row"><div><strong>${unit.label ?? unit.id}</strong><span>${unit.responsibleName ?? ''}</span></div><span class="status-badge ${status.eligible?'ok':'attention'}">${label}</span></article>`;
+    return `<article class="compliance-row"><div><strong>${escapeHtml(unit.label ?? unit.id)}</strong><span>${escapeHtml(unit.responsibleName ?? '')}</span></div><div class="compliance-actions"><span class="status-badge ${status.eligible?'ok':'attention'}">${escapeHtml(label)}</span>${status.eligible && !existing ? `<button class="small-button issue-certificate" data-unit="${escapeHtml(unit.id)}" data-year="${year}" type="button">Emitir PDF</button>` : ''}</div></article>`;
   }).join('');
+  document.querySelectorAll('.issue-certificate').forEach(button => button.addEventListener('click', async () => {
+    try {
+      const record = await issueCertificateForUnit(button.dataset.unit, Number(button.dataset.year));
+      $('#certificate-feedback').textContent = `Declaração ${record.certificateId} emitida e baixada. O original ficou preservado no histórico local.`;
+    } catch (error) { $('#certificate-feedback').textContent = `Emissão bloqueada: ${error.message}`; }
+  }));
 }
 
 async function refreshImportedData() {
   const [meta, residential, units, periods] = await Promise.all([getImportMeta(), getResidential(), listUnits(), listPeriods()]);
+  residentialData = residential;
   importedPeriods = periods.sort((a,b)=>a.id.localeCompare(b.id));
   importedUnits = units.sort((a,b)=>String(a.id).localeCompare(String(b.id)));
   fillUnitSelectors();
@@ -287,7 +456,12 @@ async function init() {
   $('#import-button').addEventListener('click', importSelectedFile);
   $('#save-obligation').addEventListener('click', addObligation);
   $('#generate-monthly').addEventListener('click', generateMonthlyBatch);
-  $('#compliance-year').addEventListener('change', renderLedgerCompliance);
+  $('#compliance-year').addEventListener('change', async () => { renderLedgerCompliance(); await syncClosingDate(); });
+  $('#save-closing-date').addEventListener('click', saveClosingDate);
+  $('#issue-eligible').addEventListener('click', issueEligibleBatch);
+  $('#validate-certificate').addEventListener('click', validateCertificateFile);
+  await syncClosingDate();
+  await maybeAutoIssueCurrentYear();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
 

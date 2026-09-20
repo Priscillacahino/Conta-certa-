@@ -3,19 +3,23 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#183153">
+  <meta name="theme-color" content="#0b3158">
   <meta name="description" content="Conta Certa — gestão financeira compartilhada para pequenos condomínios.">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="stylesheet" href="styles.css">
   <title>Conta Certa</title>
 </head>
 <body>
   <header class="app-header">
-    <div>
-      <span class="eyebrow">Gestão compartilhada</span>
-      <h1>Conta Certa</h1>
-      <p>Contas transparentes, decisões mais claras.</p>
+    <div class="brand-header">
+      <img class="brand-app-icon" src="icons/icon-192.png" alt="Ícone do Conta Certa">
+      <div>
+        <span class="eyebrow">Gestão compartilhada</span>
+        <h1>Conta Certa</h1>
+        <p>Contas transparentes, decisões mais claras.</p>
+      </div>
     </div>
     <div class="status-pill">Offline-first</div>
   </header>
@@ -157,14 +161,39 @@
         <p>A declaração automática é calculada pelo livro de obrigações do Conta Certa. O exercício precisa conter as 12 mensalidades e não pode existir mensalidade, taxa ou parcelamento exigível em aberto.</p>
       </section>
       <section class="card">
-        <label>Ano de referência<select id="compliance-year"></select></label>
+        <div class="form-grid">
+          <label>Ano de referência<select id="compliance-year"></select></label>
+          <label>Data de fechamento anual<input id="annual-closing-date" type="date"></label>
+        </div>
+        <div class="actions">
+          <button id="save-closing-date" class="secondary" type="button">Salvar data de fechamento</button>
+          <button id="issue-eligible" type="button">Gerar declarações elegíveis</button>
+        </div>
+        <p id="certificate-feedback" class="feedback" role="status"></p>
         <div id="compliance-list" class="compliance-list"><p class="muted">Importe o histórico para avaliar as unidades.</p></div>
       </section>
-      <section class="notice"><strong>Integridade:</strong> não existe liberação manual de declaração. A emissão exige obrigações estruturadas, exercício completo e ausência de pendências; o histórico antigo, sozinho, não autoriza o documento.</section>
+
+      <section class="card">
+        <div class="section-title compact"><div><span class="eyebrow">Documentos emitidos</span><h2>Histórico de declarações</h2></div></div>
+        <div id="certificate-history"><p class="muted">Nenhuma declaração emitida.</p></div>
+      </section>
+
+      <section class="card">
+        <div class="section-title compact"><div><span class="eyebrow">Conferência</span><h2>Validar arquivo recebido</h2></div></div>
+        <p>Selecione uma declaração registrada e o PDF recebido. O Conta Certa recalcula o SHA-256 do arquivo e compara com o hash preservado na emissão.</p>
+        <div class="form-grid">
+          <label>Declaração<select id="validation-certificate"></select></label>
+          <label>Arquivo PDF<input id="validation-file" type="file" accept="application/pdf,.pdf"></label>
+        </div>
+        <div class="actions"><button id="validate-certificate" type="button">Conferir integridade</button></div>
+        <p id="validation-feedback" class="feedback" role="status"></p>
+      </section>
+
+      <section class="notice"><strong>Integridade:</strong> não existe liberação manual de declaração. A emissão exige obrigações estruturadas, exercício completo e ausência de pendências; o histórico antigo, sozinho, não autoriza o documento. Cada PDF recebe ID, código de validação, QR Code, hash de conteúdo e hash do arquivo. Correções ocorrem por revogação e nova emissão.</section>
     </section>
   </main>
 
-  <footer>Conta Certa • v0.5 — livro de obrigações</footer>
+  <footer>Conta Certa • v0.7 — identidade visual e declaração definitiva</footer>
   <script type="module" src="src/app.js"></script>
 </body>
 </html>
