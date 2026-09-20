@@ -1,0 +1,19 @@
+{
+  "name": "Conta Certa",
+  "short_name": "Conta Certa",
+  "description": "Gestão financeira compartilhada para pequenos condomínios.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f7fb",
+  "theme_color": "#183153",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

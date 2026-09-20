@@ -1,0 +1,169 @@
+{
+  "schemaVersion": 3,
+  "source": {
+    "fileName": "demonstracao.json",
+    "periodStart": "2026-07",
+    "periodEnd": "2026-08",
+    "periodCount": 2
+  },
+  "residential": {
+    "id": "residencial-demo",
+    "name": "Residencial Demonstração",
+    "address": "Endereço não público"
+  },
+  "units": [
+    {
+      "id": "101",
+      "label": "Apartamento 101",
+      "responsibleName": "Responsável 101",
+      "contacts": [],
+      "active": true
+    },
+    {
+      "id": "102",
+      "label": "Apartamento 102",
+      "responsibleName": "Responsável 102",
+      "contacts": [],
+      "active": true
+    },
+    {
+      "id": "103",
+      "label": "Apartamento 103",
+      "responsibleName": "Responsável 103",
+      "contacts": [],
+      "active": true
+    },
+    {
+      "id": "201",
+      "label": "Apartamento 201",
+      "responsibleName": "Responsável 201",
+      "contacts": [],
+      "active": true
+    },
+    {
+      "id": "202",
+      "label": "Apartamento 202",
+      "responsibleName": "Responsável 202",
+      "contacts": [],
+      "active": true
+    }
+  ],
+  "periods": [
+    {
+      "id": "2026-07",
+      "year": 2026,
+      "month": 7,
+      "openingBalanceCents": 50534,
+      "revenues": [
+        {
+          "id": "2026-07-101",
+          "type": "contribution",
+          "unitId": "101",
+          "description": "Apartamento 101",
+          "amountCents": 19000
+        },
+        {
+          "id": "2026-07-102",
+          "type": "contribution",
+          "unitId": "102",
+          "description": "Apartamento 102",
+          "amountCents": 19000
+        },
+        {
+          "id": "2026-07-103",
+          "type": "contribution",
+          "unitId": "103",
+          "description": "Apartamento 103",
+          "amountCents": 19000
+        },
+        {
+          "id": "2026-07-201",
+          "type": "contribution",
+          "unitId": "201",
+          "description": "Apartamento 201",
+          "amountCents": 19000
+        },
+        {
+          "id": "2026-07-202",
+          "type": "contribution",
+          "unitId": "202",
+          "description": "Apartamento 202",
+          "amountCents": 19000
+        }
+      ],
+      "expenses": [],
+      "calculated": {
+        "revenueCents": 95000,
+        "expenseCents": 52311,
+        "monthlyMovementCents": 42689,
+        "closingBalanceCents": 93223
+      },
+      "reconciliation": {
+        "status": "ok",
+        "issues": {},
+        "blockingForFinancialReview": false,
+        "blockingForCompliance": true
+      }
+    },
+    {
+      "id": "2026-08",
+      "year": 2026,
+      "month": 8,
+      "openingBalanceCents": 93223,
+      "revenues": [
+        {
+          "id": "2026-08-101",
+          "type": "contribution",
+          "unitId": "101",
+          "description": "Apartamento 101",
+          "amountCents": 19000
+        },
+        {
+          "id": "2026-08-102",
+          "type": "contribution",
+          "unitId": "102",
+          "description": "Apartamento 102",
+          "amountCents": 19000
+        },
+        {
+          "id": "2026-08-103",
+          "type": "contribution",
+          "unitId": "103",
+          "description": "Apartamento 103",
+          "amountCents": 19000
+        },
+        {
+          "id": "2026-08-201",
+          "type": "contribution",
+          "unitId": "201",
+          "description": "Apartamento 201",
+          "amountCents": 19000
+        },
+        {
+          "id": "2026-08-202",
+          "type": "contribution",
+          "unitId": "202",
+          "description": "Apartamento 202",
+          "amountCents": 19000
+        }
+      ],
+      "expenses": [],
+      "calculated": {
+        "revenueCents": 95000,
+        "expenseCents": 62351,
+        "monthlyMovementCents": 32649,
+        "closingBalanceCents": 125872
+      },
+      "reconciliation": {
+        "status": "ok",
+        "issues": {},
+        "blockingForFinancialReview": false,
+        "blockingForCompliance": true
+      }
+    }
+  ],
+  "complianceEvidence": {
+    "mode": "history_reference_only",
+    "reason": "Dados de demonstração não constituem livro completo de obrigações."
+  }
+}
