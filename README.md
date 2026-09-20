@@ -1,5 +1,8 @@
-# Conta Certa
+﻿# Conta Certa
 
+<p align="center">
+  <img src="assets/logo-conta-certa.png" alt="Logotipo do Conta Certa" width="420">
+</p>
 **Gestão compartilhada, contas transparentes.**
 
 O **Conta Certa** é uma PWA mobile-first e offline-first para gestão financeira de pequenos condomínios e residenciais. O projeto nasceu de uma necessidade real: em um condomínio pequeno, com uma rotina financeira objetiva e gestão compartilhada, não foi identificada a necessidade de contratar uma empresa de grande porte apenas para administrar receitas, despesas, orçamentos e prestações de contas. A proposta do Conta Certa é oferecer o suporte necessário para essa realidade de forma simples, organizada, transparente e de baixo custo.
@@ -163,6 +166,21 @@ O histórico importado é tratado como **referência financeira**, e não como p
 
 A emissão anual será autorizada somente pelo **livro de obrigações do Conta Certa**, no qual cada mensalidade, taxa extra ou parcelamento terá situação própria. Qualquer obrigação pendente bloqueia a declaração.
 
+## Instalação como PWA
+
+O Conta Certa possui publicação automatizada por **GitHub Pages**. Cada atualização na branch `main` executa primeiro os testes e a auditoria de privacidade e, somente se tudo passar, publica a PWA em HTTPS.
+
+No celular, abra a URL publicada e use **Instalar app** / **Adicionar à tela inicial**. O núcleo continua offline-first após o primeiro carregamento.
+
+Veja: [`docs/INSTALACAO_PWA.md`](docs/INSTALACAO_PWA.md).
+
+## Perfil de administrador
+
+Na primeira abertura em um navegador ou aparelho sem credencial configurada, o Conta Certa solicita a criação do **PIN/senha administrativo local**. A credencial não é enviada ao GitHub nem a um servidor e não é armazenada em texto puro; o aplicativo usa PBKDF2/SHA-256 com salt aleatório para validação.
+
+No MVP atual existe **um perfil administrativo por instalação/navegador**. A sessão expira automaticamente por inatividade e pode ser bloqueada manualmente.
+
+Veja: [`docs/ADMINISTRADOR.md`](docs/ADMINISTRADOR.md).
 ## Status
 
 🚧 **Em desenvolvimento — v0.9.2 (histórico integralmente classificado, backup protegido, fechamento mensal, prestação de contas e segurança reforçada).**
@@ -184,3 +202,4 @@ npm run verify
 ```
 
 O comando executa toda a suíte de testes e, em seguida, verifica regras de publicação segura, exclusão de arquivos privados, CSP, política de referência, cache do Service Worker e padrões comuns de credenciais acidentalmente publicadas. Limitações e riscos residuais estão documentados em [`docs/AUDITORIA_SEGURANCA_PRIVACIDADE.md`](docs/AUDITORIA_SEGURANCA_PRIVACIDADE.md).
+
