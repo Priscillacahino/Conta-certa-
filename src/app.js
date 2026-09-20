@@ -194,7 +194,7 @@ async function createEncryptedBackup() {
   const confirmation = $('#backup-confirm').value;
   if (passphrase !== confirmation) { $('#backup-feedback').textContent = 'As senhas do backup não conferem.'; return; }
   try {
-    const snapshot = await exportDatabaseSnapshot('0.9.2');
+    const snapshot = await exportDatabaseSnapshot('0.9.3');
     const envelope = await encryptSnapshot(snapshot, passphrase);
     const stamp = new Date().toISOString().slice(0,10);
     downloadJson(envelope, `Conta_Certa_backup_${stamp}.ccbackup.json`);

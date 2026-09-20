@@ -45,6 +45,7 @@
     <button class="nav-button active" data-view="overview">Visão geral</button>
     <button class="nav-button" data-view="history">Histórico</button>
     <button class="nav-button" data-view="projections">Projeções</button>
+    <button class="nav-button" data-view="cashbook">Caixa & backup</button>
     <button class="nav-button" data-view="obligations">Obrigações</button>
     <button class="nav-button" data-view="compliance">Adimplência</button>
   </nav>
@@ -135,6 +136,8 @@
           <label class="wide">Nome do projeto<input id="project-name" value="Serviço de fachada" placeholder="Ex.: Serviço de fachada"></label>
           <label>Saldo atual em caixa (R$)<input id="cash-balance" type="number" min="0" step="0.01"></label>
           <label>Reserva mínima protegida (R$)<input id="protected-reserve" type="number" min="0" step="0.01"></label>
+          <label>Compromissos já assumidos (R$)<input id="committed-amount" type="number" min="0" step="0.01"></label>
+          <label>Margem de contingência (%)<input id="contingency-percent" type="number" min="0" step="0.01"></label>
           <label>Unidades ativas<input id="active-units" type="number" min="1" step="1"></label>
         </div>
         <div class="subsection">
@@ -145,10 +148,62 @@
         <p id="save-feedback" class="feedback" role="status"></p>
       </section>
 
-      <section class="card"><div class="section-title compact"><h2>Resultado</h2><span class="muted">Comparação individual por orçamento</span></div><div id="projection-result" class="result-grid"><p class="muted">Preencha um orçamento e toque em “Calcular projeção”.</p></div></section>
+      <section class="card"><div class="section-title compact"><h2>Resultado</h2><span class="muted">Comparação individual por orçamento</span></div><p id="projection-comparison" class="muted">Adicione um ou mais orçamentos para comparar cenários.</p><div id="projection-result" class="result-grid"><p class="muted">Preencha um orçamento e toque em “Calcular projeção”.</p></div></section>
       <section class="card"><h2>Projeções salvas</h2><div id="projection-history"></div></section>
     </section>
 
+
+    <section class="view" id="view-cashbook">
+      <section class="card intro">
+        <span class="eyebrow">Operação mensal</span>
+        <h2>Caixa, fechamento e backup</h2>
+        <p>Registre movimentações, confira o resumo da competência, feche o mês, gere a prestação de contas e mantenha um backup criptografado dos dados locais.</p>
+      </section>
+
+      <section class="card">
+        <div class="section-title compact"><div><span class="eyebrow">Competência</span><h2>Fechamento mensal</h2></div><span id="closing-state" class="status-badge neutral">Em aberto</span></div>
+        <div class="form-grid">
+          <label>Competência<input id="closing-competence" type="month"></label>
+          <label>Saldo inicial (R$)<input id="closing-opening-balance" type="number" step="0.01"></label>
+        </div>
+        <p id="opening-balance-source" class="muted">O saldo inicial será transportado da competência anterior quando disponível.</p>
+        <section class="kpi-grid closing-kpis">
+          <article class="kpi"><span>Saldo inicial</span><strong id="closing-opening">R$ 0,00</strong></article>
+          <article class="kpi"><span>Receitas</span><strong id="closing-revenue">R$ 0,00</strong></article>
+          <article class="kpi"><span>Despesas</span><strong id="closing-expense">R$ 0,00</strong></article>
+          <article class="kpi"><span>Resultado</span><strong id="closing-result">R$ 0,00</strong></article>
+          <article class="kpi"><span>Saldo final</span><strong id="closing-balance">R$ 0,00</strong></article>
+        </section>
+
+        <div class="subsection">
+          <div class="section-title compact"><div><span class="eyebrow">Lançamento</span><h3>Nova movimentação</h3></div></div>
+          <div class="form-grid">
+            <label>Data<input id="movement-date" type="date"></label>
+            <label>Tipo<select id="movement-kind"><option value="expense">Despesa</option><option value="income">Receita</option></select></label>
+            <label>Categoria<input id="movement-category" placeholder="Ex.: Manutenção"></label>
+            <label class="wide">Descrição<input id="movement-description" placeholder="Ex.: Reparo do portão"></label>
+            <label>Valor (R$)<input id="movement-amount" type="number" min="0" step="0.01"></label>
+          </div>
+          <div class="actions"><button id="save-movement" type="button">Registrar movimentação</button></div>
+        </div>
+
+        <div class="subsection"><h3>Movimentações da competência</h3><div id="closing-movements"><p class="muted">Nenhuma movimentação registrada.</p></div></div>
+        <div class="actions"><button id="close-month" type="button">Fechar competência</button><button id="reopen-month" class="secondary" type="button">Reabrir</button><button id="download-statement" class="secondary" type="button">Baixar prestação de contas</button></div>
+        <p id="closing-feedback" class="feedback" role="status"></p>
+      </section>
+
+      <section class="card">
+        <div class="section-title compact"><div><span class="eyebrow">Proteção de dados</span><h2>Backup e restauração</h2></div></div>
+        <p>O backup reúne os dados operacionais do Conta Certa em um arquivo criptografado. Use uma senha de backup com pelo menos 8 caracteres e guarde a senha separadamente do arquivo.</p>
+        <div class="form-grid">
+          <label>Senha do backup<input id="backup-passphrase" type="password" minlength="8" autocomplete="new-password"></label>
+          <label>Confirmar senha<input id="backup-confirm" type="password" minlength="8" autocomplete="new-password"></label>
+          <label class="wide">Arquivo para restaurar<input id="restore-backup-file" type="file" accept="application/json,.json,.ccbackup.json"></label>
+        </div>
+        <div class="actions"><button id="create-backup" type="button">Gerar backup criptografado</button><button id="restore-backup" class="secondary" type="button">Restaurar backup</button></div>
+        <p id="backup-feedback" class="feedback" role="status"></p>
+      </section>
+    </section>
 
     <section class="view" id="view-obligations">
       <section class="card intro">
@@ -234,7 +289,7 @@
     </section>
   </main>
 
-  <footer>Conta Certa • v0.9.2 — histórico conciliado e segurança reforçada</footer>
+  <footer>Conta Certa • v0.9.3 — correção da interface operacional</footer>
   <script type="module" src="src/app.js"></script>
 </body>
 </html>
