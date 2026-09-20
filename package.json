@@ -1,6 +1,6 @@
-{
+﻿{
   "name": "conta-certa",
-  "version": "0.9.3",
+  "version": "0.9.4",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,3 +9,4 @@
     "verify": "node --test && node scripts/audit-public-package.mjs"
   }
 }
+

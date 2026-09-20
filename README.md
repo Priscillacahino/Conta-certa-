@@ -166,6 +166,17 @@ O histórico importado é tratado como **referência financeira**, e não como p
 
 A emissão anual será autorizada somente pelo **livro de obrigações do Conta Certa**, no qual cada mensalidade, taxa extra ou parcelamento terá situação própria. Qualquer obrigação pendente bloqueia a declaração.
 
+## Instalação em um toque
+
+Para facilitar o acesso de moradores e demais usuários, o Conta Certa possui uma página específica de instalação:
+
+**[📲 Instalar Conta Certa no celular](https://priscillacahino.github.io/Conta-certa-/instalar.html)**
+
+No Android, a página aciona o prompt nativo de instalação quando o navegador permite. No iPhone/iPad, ela mostra o caminho para **Adicionar à Tela de Início**, pois o iOS não permite instalação silenciosa por sites.
+
+O usuário não precisa baixar ZIP, APK nem acessar o repositório.
+
+Veja: [`docs/LINK_INSTALACAO.md`](docs/LINK_INSTALACAO.md).
 ## Instalação como PWA
 
 O Conta Certa possui publicação automatizada por **GitHub Pages**. Cada atualização na branch `main` executa primeiro os testes e a auditoria de privacidade e, somente se tudo passar, publica a PWA em HTTPS.
@@ -183,7 +194,7 @@ No MVP atual existe **um perfil administrativo por instalação/navegador**. A s
 Veja: [`docs/ADMINISTRADOR.md`](docs/ADMINISTRADOR.md).
 ## Status
 
-🚧 **Em desenvolvimento — v0.9.2 (histórico integralmente classificado, backup protegido, fechamento mensal, prestação de contas e segurança reforçada).**
+🚧 **Em desenvolvimento — v0.9.4 (instalador simplificado, histórico conciliado, backup protegido e interface operacional).**
 
 A planilha histórica real será utilizada para validação e migração dos dados, sem expor nomes de moradores, telefones ou endereço completo nos dados públicos de demonstração.
 
@@ -202,4 +213,5 @@ npm run verify
 ```
 
 O comando executa toda a suíte de testes e, em seguida, verifica regras de publicação segura, exclusão de arquivos privados, CSP, política de referência, cache do Service Worker e padrões comuns de credenciais acidentalmente publicadas. Limitações e riscos residuais estão documentados em [`docs/AUDITORIA_SEGURANCA_PRIVACIDADE.md`](docs/AUDITORIA_SEGURANCA_PRIVACIDADE.md).
+
 

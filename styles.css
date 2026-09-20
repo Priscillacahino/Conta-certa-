@@ -146,3 +146,24 @@ button:disabled{opacity:.5;cursor:not-allowed}
 /* v0.9.1 — proteção contra captura acidental no alternador de apps */
 .privacy-screen main,.privacy-screen .app-nav,.privacy-screen footer{visibility:hidden!important}
 .privacy-screen .app-header{filter:none}
+
+/* v0.9.4 — página de instalação simplificada */
+.install-page{margin:0;min-height:100vh;background:linear-gradient(160deg,#0b3158 0%,#183153 48%,#f4f7fb 48%,#f4f7fb 100%);color:#142033}
+.install-shell{min-height:100vh;display:grid;place-items:center;padding:24px 16px;max-width:none}
+.install-card{width:min(100%,520px);background:#fff;border:1px solid #dfe7f1;border-radius:24px;padding:26px;box-shadow:0 24px 70px rgba(11,49,88,.22);text-align:center}
+.install-logo{width:min(100%,300px);height:auto;margin:0 auto 16px;display:block}
+.install-card h1{color:#183153;margin:.25rem 0 .4rem}
+.install-lead{color:#506176;font-size:1.02rem;line-height:1.55;margin:0 auto 22px;max-width:440px}
+.install-state{display:grid;gap:10px}
+.install-primary{font-size:1.04rem;padding:15px 18px;background:#183153}
+.install-primary:disabled{opacity:.6;cursor:wait}
+.install-secondary{width:100%}
+.install-feedback{min-height:1.5rem;margin:14px 0 4px}
+.install-help{margin-top:18px;padding:16px;text-align:left;background:#f4f7fb;border:1px solid #dfe7f1;border-radius:14px}
+.install-help h2{font-size:1rem;margin:0 0 9px;color:#183153}
+.install-help p,.install-help ol{margin:0;color:#506176;line-height:1.55}
+.install-help ol{padding-left:22px}
+.install-ok{background:#eaf7ef;border-color:#c9ead6}
+.install-note{display:block;margin-top:20px;color:#6b7a8e;line-height:1.45}
+@media(max-width:430px){.install-card{padding:20px 16px;border-radius:20px}.install-logo{width:min(100%,250px)}}
+
