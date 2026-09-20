@@ -166,6 +166,27 @@ O histórico importado é tratado como **referência financeira**, e não como p
 
 A emissão anual será autorizada somente pelo **livro de obrigações do Conta Certa**, no qual cada mensalidade, taxa extra ou parcelamento terá situação própria. Qualquer obrigação pendente bloqueia a declaração.
 
+## QR Code oficial de instalação
+
+Para facilitar ainda mais o acesso pelo celular, o Conta Certa possui um QR Code oficial que leva diretamente para a página de instalação.
+
+<p align="center">
+  <a href="https://priscillacahino.github.io/Conta-certa-/instalar.html">
+    <img src="assets/qrcode-instalacao-conta-certa.png" alt="QR Code para instalar o Conta Certa" width="280">
+  </a>
+</p>
+
+<p align="center">
+  <strong>Escaneie com a câmera do celular para instalar o Conta Certa.</strong>
+</p>
+
+Link direto: **https://priscillacahino.github.io/Conta-certa-/instalar.html**
+
+Também está disponível uma versão em formato de cartaz para compartilhamento e impressão:
+
+[`assets/qrcode-instalacao-conta-certa-poster.png`](assets/qrcode-instalacao-conta-certa-poster.png)
+
+Veja: [`docs/QR_CODE_INSTALACAO.md`](docs/QR_CODE_INSTALACAO.md).
 ## Instalação em um toque
 
 Para facilitar o acesso de moradores e demais usuários, o Conta Certa possui uma página específica de instalação:
@@ -213,5 +234,6 @@ npm run verify
 ```
 
 O comando executa toda a suíte de testes e, em seguida, verifica regras de publicação segura, exclusão de arquivos privados, CSP, política de referência, cache do Service Worker e padrões comuns de credenciais acidentalmente publicadas. Limitações e riscos residuais estão documentados em [`docs/AUDITORIA_SEGURANCA_PRIVACIDADE.md`](docs/AUDITORIA_SEGURANCA_PRIVACIDADE.md).
+
 
 
