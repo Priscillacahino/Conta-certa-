@@ -31,6 +31,8 @@ O sistema foi pensado para substituir controles manuais em planilhas sem perder 
 - projeções de gastos e comparação de orçamentos;
 - backup, restauração e exportação;
 - funcionamento offline;
+- controle de acesso local por PIN/senha;
+- importação separada do cadastro privado, sem sobrescrever o histórico;
 - declaração anual de adimplência com regras rígidas de integridade;
 - inteligência financeira local sem dependência obrigatória de API paga.
 
@@ -88,6 +90,24 @@ A entrega usa a folha de compartilhamento nativa do celular. Envio completamente
 
 Veja também: [`docs/DECLARACOES_ADIMPLENCIA.md`](docs/DECLARACOES_ADIMPLENCIA.md).
 
+## Segurança e dados privados
+
+A v0.8 adiciona proteção local por credencial derivada com PBKDF2/SHA-256 e sessão temporária, além de um importador específico para o cadastro privado do residencial. O cadastro real continua fora do repositório público. Veja [`docs/SEGURANCA_LOCAL.md`](docs/SEGURANCA_LOCAL.md) e [`docs/CADASTRO_PRIVADO.md`](docs/CADASTRO_PRIVADO.md).
+
+
+## Backup, fechamento e prestação de contas
+
+A versão 0.9 acrescenta quatro blocos operacionais importantes antes da publicação final da PWA:
+
+- **backup criptografado e restauração**, com PBKDF2/SHA-256 + AES-256-GCM e validação contra arquivo adulterado;
+- **fechamento mensal**, com transporte do saldo final para a competência seguinte e bloqueio de lançamentos após o encerramento;
+- **reabertura controlada**, obrigatoriamente justificada e registrada, com incremento da revisão no novo fechamento;
+- **prestação de contas mensal em PDF**, gerada localmente a partir de uma competência fechada e com suporte a múltiplas páginas.
+
+A área de projeções também passa a considerar compromissos já assumidos, margem de contingência e rateio exato dos centavos quando houver déficit. O sistema continua sem escolher fornecedor automaticamente.
+
+Veja [`docs/BACKUP_RESTAURACAO.md`](docs/BACKUP_RESTAURACAO.md), [`docs/FECHAMENTO_MENSAL.md`](docs/FECHAMENTO_MENSAL.md), [`docs/PRESTACAO_CONTAS.md`](docs/PRESTACAO_CONTAS.md) e [`docs/PROJECOES.md`](docs/PROJECOES.md).
+
 ## Arquitetura do MVP
 
 - PWA em HTML, CSS e JavaScript;
@@ -119,9 +139,19 @@ saldo final:      R$ 1.258,72
 A versão 0.4 aprofunda a conciliação da planilha real, com **136 competências entre maio/2015 e agosto/2026**. O resultado atual da auditoria é:
 
 - **106 competências totalmente conciliadas**;
-- **16 competências com diferenças explicadas e documentadas**;
+- **18 competências com diferenças explicadas e documentadas**;
 - **12 competências classificadas como formato legado de 2019**, quando existia um controle auxiliar de fundo de reserva com lógica diferente da atual;
-- **2 competências ainda em revisão manual**: maio/2023 e agosto/2023, por diferenças de transporte de saldo sem lançamento explicativo identificado.
+- **0 competências em revisão manual**. Maio/2023 e agosto/2023 passaram a ser tratados como ajustes explícitos de transporte da própria fonte histórica, sem criar receitas ou despesas fictícias.
+
+
+### Fechamento da revisão histórica de 2023
+
+A revisão da fonte original permitiu encerrar os dois pontos que permaneciam pendentes sem inventar lançamentos:
+
+- **maio/2023:** a própria planilha abre o mês em R$ 0,00 depois de abril encerrar em -R$ 55,73. A diferença de R$ 55,73 fica registrada como ajuste de transporte da fonte, e não como receita;
+- **agosto/2023:** a abertura de R$ 404,13 fica exatamente R$ 199,92 abaixo do fechamento de julho. Esse valor coincide com o campo histórico `SALDO PARA FUNDO DE RESERVA` de julho. A diferença fica registrada como ajuste de transporte da fonte, sem ser convertida em despesa.
+
+Essas classificações explicam a estrutura aritmética da fonte histórica; elas **não afirmam uma movimentação bancária externa que não esteja documentada**.
 
 A migração também passou a reconhecer a seção separada de **taxa extraordinária de maio/2021**, que explica o saldo de R$ 5.205,25 transportado para junho daquele ano. Pequenas diferenças aritméticas históricas são registradas como ajustes explícitos, nunca apagadas.
 
@@ -135,7 +165,7 @@ A emissão anual será autorizada somente pelo **livro de obrigações do Conta 
 
 ## Status
 
-🚧 **Em desenvolvimento — v0.6 (emissão, integridade, validação e revogação de declarações).**
+🚧 **Em desenvolvimento — v0.9.2 (histórico integralmente classificado, backup protegido, fechamento mensal, prestação de contas e segurança reforçada).**
 
 A planilha histórica real será utilizada para validação e migração dos dados, sem expor nomes de moradores, telefones ou endereço completo nos dados públicos de demonstração.
 
@@ -143,3 +173,14 @@ A planilha histórica real será utilizada para validação e migração dos dad
 
 **Priscilla Cahino**  
 Projeto pessoal/acadêmico na interseção entre Contabilidade, gestão financeira e Análise e Desenvolvimento de Sistemas.
+
+
+## Verificação de segurança e privacidade
+
+A versão 0.9.1 inclui auditoria automatizada do pacote público. Rode:
+
+```bash
+npm run verify
+```
+
+O comando executa toda a suíte de testes e, em seguida, verifica regras de publicação segura, exclusão de arquivos privados, CSP, política de referência, cache do Service Worker e padrões comuns de credenciais acidentalmente publicadas. Limitações e riscos residuais estão documentados em [`docs/AUDITORIA_SEGURANCA_PRIVACIDADE.md`](docs/AUDITORIA_SEGURANCA_PRIVACIDADE.md).

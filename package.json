@@ -1,9 +1,11 @@
 {
   "name": "conta-certa",
-  "version": "0.7.0",
+  "version": "0.9.2",
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "audit:privacy": "node scripts/audit-public-package.mjs",
+    "verify": "node --test && node scripts/audit-public-package.mjs"
   }
 }

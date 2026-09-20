@@ -3,11 +3,19 @@ import {
   getSetting, setSetting, saveProjection, listProjections,
   replaceImportedData, getImportMeta, getResidential, listUnits, listPeriods,
   saveObligation, saveObligations, listObligations, registerObligationPayment,
-  listCertificates, saveIssuedCertificate, revokeStoredCertificate,
+  listCertificates, saveIssuedCertificate, revokeStoredCertificate, replacePrivateProfile,
+  listPayments, listTransactions, saveTransaction, listMonthClosings, saveMonthClosing, reopenMonthClosing,
+  exportDatabaseSnapshot, restoreDatabaseSnapshot,
 } from './db.js';
 import { validateImportBundle, summarizeImport, summarizeByYear } from './migration.js';
 import { evaluateAnnualCompliance, lastWeekdayOfYear } from './compliance.js';
 import { issueCertificateArtifact, verifyCertificateRecord, base64ToBytes } from './certificates.js';
+import { createSecurityCredential, verifySecurityCredential, nextSessionDeadline, unlockThrottleStatus, recordUnlockFailure, resetUnlockThrottle, SECURITY_DEFAULTS } from './security.js';
+import { normalizePrivateProfile, privateProfileSummary } from './private-profile.js';
+import { encryptSnapshot, decryptSnapshot } from './backup.js';
+import { normalizeMovement, summarizeCompetence, createClosingRecord, reopenClosingRecord, previousCompetence } from './closing.js';
+import { buildMonthlyStatementPdf } from './statement-pdf.js';
+import { escapeHtml } from './sanitize.js';
 import {
   normalizeObligation, ledgerSummary, createMonthlyObligations,
   applyPayment, outstandingCents,
@@ -22,6 +30,315 @@ let importedUnits = [];
 let ledger = [];
 let residentialData = null;
 let certificates = [];
+let securityCredential = null;
+let unlockedUntil = 0;
+let securityTimer = null;
+let hiddenAt = null;
+let securitySetupMode = false;
+let unlockThrottle = resetUnlockThrottle();
+let payments = [];
+let movements = [];
+let monthClosings = [];
+
+function normalDocumentTitle() {
+  return residentialData?.name ? `Conta Certa — ${residentialData.name}` : 'Conta Certa';
+}
+
+function hideSensitiveSnapshot() {
+  document.body.classList.add('privacy-screen');
+  document.title = 'Conta Certa';
+}
+
+function showSensitiveSnapshot() {
+  if (unlockedUntil) document.body.classList.remove('privacy-screen');
+  document.title = unlockedUntil ? normalDocumentTitle() : 'Conta Certa — Bloqueado';
+}
+
+function updateSecurityDeadline() {
+  if (!unlockedUntil) return;
+  unlockedUntil = nextSessionDeadline(Date.now(), SECURITY_DEFAULTS.sessionTtlMs);
+  clearTimeout(securityTimer);
+  securityTimer = setTimeout(() => lockApplication('Sessão encerrada por inatividade.'), SECURITY_DEFAULTS.sessionTtlMs + 50);
+}
+
+function setSecurityGate({ setup = false, message = '' } = {}) {
+  securitySetupMode = setup;
+  $('#security-title').textContent = setup ? 'Criar proteção do Conta Certa' : 'Conta Certa protegido';
+  $('#security-help').textContent = setup
+    ? 'Crie um PIN ou senha com pelo menos 6 caracteres. Ele será necessário para abrir os dados neste aparelho.'
+    : 'Informe seu PIN ou senha para acessar os dados financeiros.';
+  $('#security-submit').textContent = setup ? 'Criar proteção e entrar' : 'Desbloquear';
+  $('#security-confirm-wrap').hidden = !setup;
+  $('#security-secret').autocomplete = setup ? 'new-password' : 'current-password';
+  $('#security-secret').value = '';
+  $('#security-confirm').value = '';
+  $('#security-feedback').textContent = message;
+  $('#security-gate').hidden = false;
+  document.body.classList.add('app-locked');
+  document.body.classList.remove('privacy-screen');
+  document.title = 'Conta Certa — Bloqueado';
+  setTimeout(() => $('#security-secret').focus(), 50);
+}
+
+function unlockApplication() {
+  unlockedUntil = nextSessionDeadline(Date.now(), SECURITY_DEFAULTS.sessionTtlMs);
+  document.body.classList.remove('app-locked');
+  document.body.classList.remove('privacy-screen');
+  document.title = normalDocumentTitle();
+  $('#security-gate').hidden = true;
+  $('#security-feedback').textContent = '';
+  updateSecurityDeadline();
+}
+
+function lockApplication(message = 'Aplicativo bloqueado.') {
+  unlockedUntil = 0;
+  clearTimeout(securityTimer);
+  setSecurityGate({ setup: false, message });
+}
+
+async function handleSecuritySubmit(event) {
+  event.preventDefault();
+  const secret = $('#security-secret').value;
+  $('#security-feedback').textContent = '';
+  if (securitySetupMode) {
+    if (secret !== $('#security-confirm').value) {
+      $('#security-feedback').textContent = 'As duas entradas não conferem.';
+      return;
+    }
+    try {
+      securityCredential = await createSecurityCredential(secret);
+      await setSetting('securityCredential', securityCredential);
+      unlockApplication();
+    } catch (error) {
+      $('#security-feedback').textContent = error.message === 'SEGREDO_MUITO_CURTO'
+        ? 'Use pelo menos 6 caracteres.' : `Não foi possível criar a proteção: ${error.message}`;
+    }
+    return;
+  }
+  const throttle = unlockThrottleStatus(unlockThrottle);
+  if (throttle.blocked) {
+    $('#security-feedback').textContent = `Muitas tentativas. Aguarde ${Math.ceil(throttle.remainingMs / 1000)} segundos.`;
+    return;
+  }
+  const ok = await verifySecurityCredential(secret, securityCredential);
+  if (!ok) {
+    unlockThrottle = recordUnlockFailure(unlockThrottle, Date.now(), { maxAttempts: SECURITY_DEFAULTS.maxUnlockAttempts, cooldownMs: SECURITY_DEFAULTS.unlockCooldownMs });
+    await setSetting('securityUnlockThrottle', { failedAttempts: unlockThrottle.failedAttempts, blockedUntil: unlockThrottle.blockedUntil });
+    $('#security-feedback').textContent = unlockThrottle.blocked
+      ? `Muitas tentativas incorretas. Acesso temporariamente bloqueado por ${Math.ceil(unlockThrottle.remainingMs / 1000)} segundos.`
+      : `PIN ou senha incorretos. Tentativa ${unlockThrottle.failedAttempts} de ${SECURITY_DEFAULTS.maxUnlockAttempts}.`;
+    $('#security-secret').select();
+    return;
+  }
+  unlockThrottle = resetUnlockThrottle();
+  await setSetting('securityUnlockThrottle', { failedAttempts: 0, blockedUntil: 0 });
+  unlockApplication();
+}
+
+async function initializeSecurity() {
+  securityCredential = await getSetting('securityCredential', null);
+  unlockThrottle = unlockThrottleStatus(await getSetting('securityUnlockThrottle', { failedAttempts: 0, blockedUntil: 0 }));
+  $('#security-form').addEventListener('submit', handleSecuritySubmit);
+  const touch = () => { if (unlockedUntil) updateSecurityDeadline(); };
+  ['pointerdown','keydown','touchstart'].forEach(name => document.addEventListener(name, touch, { passive: true }));
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      hiddenAt = Date.now();
+      hideSensitiveSnapshot();
+    } else {
+      if (hiddenAt && Date.now() - hiddenAt >= SECURITY_DEFAULTS.backgroundGraceMs && unlockedUntil) lockApplication('Aplicativo bloqueado após ficar em segundo plano.');
+      else showSensitiveSnapshot();
+      hiddenAt = null;
+    }
+  });
+  $('#lock-app').addEventListener('click', () => lockApplication());
+  $('#lock-app-card').addEventListener('click', () => lockApplication());
+  $('#change-security-secret').addEventListener('click', () => setSecurityGate({ setup: true, message: 'Defina a nova credencial. A alteração só vale neste aparelho.' }));
+  if (securityCredential) setSecurityGate();
+  else setSecurityGate({ setup: true });
+  return new Promise(resolve => {
+    const observer = new MutationObserver(() => {
+      if ($('#security-gate').hidden) { observer.disconnect(); resolve(); }
+    });
+    observer.observe($('#security-gate'), { attributes: true, attributeFilter: ['hidden'] });
+  });
+}
+
+async function importPrivateProfileFile() {
+  const file = $('#private-profile-file').files?.[0];
+  if (!file) { $('#private-profile-feedback').textContent = 'Selecione o arquivo privado do residencial.'; return; }
+  try {
+    const normalized = normalizePrivateProfile(JSON.parse(await file.text()));
+    await replacePrivateProfile(normalized);
+    const summary = privateProfileSummary(normalized);
+    $('#private-profile-feedback').textContent = `Cadastro privado importado: ${summary.unitCount} unidade(s) e ${summary.phoneCount} telefone(s).`;
+    $('#private-profile-state').textContent = 'Carregado';
+    $('#private-profile-state').className = 'status-badge ok';
+    await refreshImportedData();
+  } catch (error) {
+    $('#private-profile-feedback').textContent = `Cadastro privado não importado: ${error.message}`;
+  }
+}
+
+
+function downloadJson(value, fileName) {
+  const blob = new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url; link.download = fileName; document.body.appendChild(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+async function createEncryptedBackup() {
+  const passphrase = $('#backup-passphrase').value;
+  const confirmation = $('#backup-confirm').value;
+  if (passphrase !== confirmation) { $('#backup-feedback').textContent = 'As senhas do backup não conferem.'; return; }
+  try {
+    const snapshot = await exportDatabaseSnapshot('0.9.2');
+    const envelope = await encryptSnapshot(snapshot, passphrase);
+    const stamp = new Date().toISOString().slice(0,10);
+    downloadJson(envelope, `Conta_Certa_backup_${stamp}.ccbackup.json`);
+    $('#backup-feedback').textContent = 'Backup criptografado gerado. Guarde o arquivo e a senha em locais seguros e separados.';
+  } catch (error) {
+    $('#backup-feedback').textContent = error.message === 'SENHA_BACKUP_MUITO_CURTA' ? 'Use pelo menos 8 caracteres para proteger o backup.' : `Backup não gerado: ${error.message}`;
+  }
+}
+
+async function restoreEncryptedBackup() {
+  const file = $('#restore-backup-file').files?.[0];
+  const passphrase = $('#backup-passphrase').value;
+  if (!file) { $('#backup-feedback').textContent = 'Selecione um arquivo .ccbackup.json.'; return; }
+  if (!window.confirm('A restauração substituirá os dados locais do Conta Certa neste aparelho. A credencial de acesso atual será preservada. Continuar?')) return;
+  try {
+    const envelope = JSON.parse(await file.text());
+    const snapshot = await decryptSnapshot(envelope, passphrase);
+    await restoreDatabaseSnapshot(snapshot);
+    $('#backup-feedback').textContent = 'Backup restaurado e validado. Recarregando os dados locais...';
+    setTimeout(() => window.location.reload(), 500);
+  } catch (error) {
+    $('#backup-feedback').textContent = error.message === 'BACKUP_SENHA_OU_INTEGRIDADE_INVALIDA'
+      ? 'Restauração recusada: senha incorreta ou arquivo alterado/corrompido.'
+      : `Restauração não realizada: ${error.message}`;
+  }
+}
+
+function previousBalanceFor(competence) {
+  const prior = previousCompetence(competence);
+  const closing = monthClosings.find(c => c.competence === prior);
+  if (closing?.status === 'reopened') return { blocked: true, source: 'reopened', competence: prior };
+  if (closing?.status === 'closed') return { value: closing.closingBalanceCents, source: 'closing', competence: prior };
+  const period = importedPeriods.find(p => p.id === prior);
+  if (period?.calculated?.closingBalanceCents != null) return { value: period.calculated.closingBalanceCents, source: 'history', competence: prior };
+  return { value: null, source: 'manual', competence: prior };
+}
+
+function movementRowsFor(competence) {
+  const pay = payments.filter(p => String(p.paidAt ?? '').startsWith(competence)).map(p => ({
+    kind: 'income', date: p.paidAt, description: p.description || `Pagamento - unidade ${p.unitId}`, amountCents: p.amountCents, source: 'Pagamento'
+  }));
+  const manual = movements.filter(m => m.competence === competence).map(m => ({...m, source: m.kind === 'income' ? 'Receita manual' : 'Despesa'}));
+  return [...pay, ...manual].sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+}
+
+function renderClosingView() {
+  const competence = $('#closing-competence').value;
+  if (!competence) return;
+  const existing = monthClosings.find(c => c.competence === competence) ?? null;
+  const prior = previousBalanceFor(competence);
+  const openingInput = $('#closing-opening-balance');
+  if (prior.blocked) {
+    openingInput.value = '';
+    openingInput.readOnly = true;
+    $('#closing-feedback').textContent = `Não é possível fechar ${competence}: a competência anterior (${prior.competence}) está reaberta.`;
+  } else if (prior.value != null) {
+    openingInput.value = (prior.value / 100).toFixed(2);
+    openingInput.readOnly = true;
+    $('#opening-balance-source').textContent = prior.source === 'closing' ? `Transportado do fechamento de ${prior.competence}` : `Transportado do histórico de ${prior.competence}`;
+  } else {
+    if (!openingInput.value) openingInput.value = '0.00';
+    openingInput.readOnly = false;
+    $('#opening-balance-source').textContent = 'Sem competência anterior encontrada: informe o saldo inicial uma única vez.';
+  }
+  const summary = summarizeCompetence({competence, openingBalanceCents: toCents(openingInput.value), payments, movements});
+  $('#closing-opening').textContent = money(summary.openingBalanceCents);
+  $('#closing-revenue').textContent = money(summary.revenueCents);
+  $('#closing-expense').textContent = money(summary.expenseCents);
+  $('#closing-result').textContent = money(summary.resultCents);
+  $('#closing-balance').textContent = money(summary.closingBalanceCents);
+  const state = $('#closing-state');
+  state.textContent = existing?.status === 'closed' ? `Fechado - rev. ${existing.revision}` : existing?.status === 'reopened' ? `Reaberto - rev. ${existing.revision}` : 'Em aberto';
+  state.className = `status-badge ${existing?.status === 'closed' ? 'ok' : existing?.status === 'reopened' ? 'attention' : 'neutral'}`;
+  $('#close-month').disabled = Boolean(existing?.status === 'closed' || prior.blocked);
+  $('#reopen-month').disabled = existing?.status !== 'closed';
+  $('#download-statement').disabled = existing?.status !== 'closed';
+  $('#save-movement').disabled = existing?.status === 'closed';
+  const rows = movementRowsFor(competence);
+  $('#closing-movements').innerHTML = rows.length ? rows.map(r => `<article class="cash-row"><div><strong>${escapeHtml(r.description)}</strong><small>${escapeHtml(String(r.date).slice(0,10))} • ${escapeHtml(r.source)}</small></div><span class="${r.kind === 'expense' ? 'negative' : 'positive'}">${r.kind === 'expense' ? '-' : '+'} ${money(r.amountCents)}</span></article>`).join('') : '<p class="muted">Nenhuma movimentação financeira nesta competência.</p>';
+}
+
+async function refreshCashbook() {
+  [payments, movements, monthClosings] = await Promise.all([listPayments(), listTransactions(), listMonthClosings()]);
+  movements = movements.map(normalizeMovement);
+  monthClosings.sort((a,b)=>String(a.competence).localeCompare(String(b.competence)));
+  renderClosingView();
+}
+
+async function addCashMovement() {
+  const competence = $('#closing-competence').value;
+  try {
+    const movement = normalizeMovement({
+      id: crypto.randomUUID(), competence,
+      date: $('#movement-date').value,
+      kind: $('#movement-kind').value,
+      category: $('#movement-category').value,
+      description: $('#movement-description').value,
+      amountCents: toCents($('#movement-amount').value),
+    });
+    await saveTransaction(movement);
+    $('#closing-feedback').textContent = movement.kind === 'expense' ? 'Despesa registrada.' : 'Receita registrada.';
+    $('#movement-description').value = ''; $('#movement-amount').value = '';
+    await refreshCashbook();
+  } catch (error) { $('#closing-feedback').textContent = `Movimento não registrado: ${error.message}`; }
+}
+
+async function closeSelectedMonth() {
+  const competence = $('#closing-competence').value;
+  const prior = previousBalanceFor(competence);
+  if (prior.blocked) { renderClosingView(); return; }
+  try {
+    const summary = summarizeCompetence({competence, openingBalanceCents: toCents($('#closing-opening-balance').value), payments, movements});
+    const previousRecord = monthClosings.find(c => c.competence === competence) ?? null;
+    const record = createClosingRecord({summary, previousRecord});
+    await saveMonthClosing(record);
+    $('#closing-feedback').textContent = `Competência ${competence} fechada. O saldo final ${money(record.closingBalanceCents)} será a abertura do mês seguinte.`;
+    await refreshCashbook();
+  } catch (error) { $('#closing-feedback').textContent = `Fechamento não realizado: ${error.message}`; }
+}
+
+async function reopenSelectedMonth() {
+  const competence = $('#closing-competence').value;
+  const current = monthClosings.find(c => c.competence === competence);
+  if (!current) return;
+  const reason = window.prompt('Informe o motivo da reabertura. O evento ficará registrado no histórico:');
+  if (reason == null) return;
+  try {
+    await reopenMonthClosing(reopenClosingRecord(current, reason));
+    $('#closing-feedback').textContent = `Competência ${competence} reaberta. Após a correção, feche novamente para criar uma nova revisão.`;
+    await refreshCashbook();
+  } catch (error) { $('#closing-feedback').textContent = `Reabertura não realizada: ${error.message}`; }
+}
+
+function downloadMonthlyStatement() {
+  const competence = $('#closing-competence').value;
+  const closing = monthClosings.find(c => c.competence === competence && c.status === 'closed');
+  if (!closing) { $('#closing-feedback').textContent = 'A prestação de contas só pode ser gerada após o fechamento.'; return; }
+  try {
+    const bytes = buildMonthlyStatementPdf({residential: residentialData, closing, payments, movements});
+    downloadBytes(bytes, `Conta_Certa_Prestacao_${competence}_rev${closing.revision}.pdf`);
+    $('#closing-feedback').textContent = 'Prestação de contas mensal gerada em PDF.';
+  } catch (error) { $('#closing-feedback').textContent = `PDF não gerado: ${error.message}`; }
+}
+
 
 function setView(name) {
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === `view-${name}`));
@@ -35,7 +352,7 @@ function quoteRow(seed = {}) {
   const row = document.createElement('div');
   row.className = 'quote-row';
   row.innerHTML = `
-    <label>Fornecedor / orçamento<input class="quote-supplier" value="${seed.supplier ?? ''}" placeholder="Ex.: Orçamento A"></label>
+    <label>Fornecedor / orçamento<input class="quote-supplier" value="${escapeHtml(seed.supplier ?? '')}" placeholder="Ex.: Orçamento A"></label>
     <label>Valor (R$)<input class="quote-amount" type="number" min="0" step="0.01" value="${seed.amount ?? ''}" placeholder="0,00"></label>
     <button type="button" class="icon-button remove-quote" aria-label="Remover orçamento">×</button>`;
   row.querySelector('.remove-quote').addEventListener('click', () => { if (quoteList.children.length > 1) row.remove(); });
@@ -53,13 +370,21 @@ function readQuotes() {
 function renderProjection(project) {
   const result = $('#projection-result');
   result.innerHTML = '';
+  const comparison = $('#projection-comparison');
+  if (comparison) comparison.textContent = project.quotes.length > 1
+    ? `Diferença entre o menor e o maior custo planejado: ${money(project.comparison.spreadCents)}. O Conta Certa compara os cenários, mas não escolhe fornecedor.`
+    : 'Adicione mais de um orçamento para comparar cenários sem escolher automaticamente um fornecedor.';
   for (const q of project.quotes) {
     const card = document.createElement('article');
-    card.className = `quote-result ${q.hasEnoughCash ? 'ok' : 'attention'}`;
+    card.className = `quote-result ${q.canHireWithoutTouchingReserve ? 'ok' : 'attention'}`;
     const coverage = (q.coverageBasisPoints / 100).toFixed(2).replace('.', ',');
-    card.innerHTML = `<div class="quote-title"><strong>${q.supplier}</strong><span>${money(q.quoteCents)}</span></div>
+    const splitValues = [...new Set(q.suggestedSplitCents)].sort((a,b)=>b-a);
+    const splitText = q.gapCents === 0 ? 'Não necessário' : splitValues.length === 1
+      ? `${money(splitValues[0])} por unidade`
+      : `${money(splitValues.at(-1))} a ${money(splitValues[0])} por unidade (soma exata ${money(q.suggestedSplitTotalCents)})`;
+    card.innerHTML = `<div class="quote-title"><strong>${escapeHtml(q.supplier)}</strong><span>${money(q.plannedQuoteCents)}</span></div>
       <div class="meter" aria-label="${coverage}% do orçamento coberto"><span style="width:${Math.min(100, q.coverageBasisPoints / 100)}%"></span></div>
-      <dl><div><dt>Caixa atual</dt><dd>${money(q.cashBalanceCents)}</dd></div><div><dt>Reserva protegida</dt><dd>${money(q.protectedReserveCents)}</dd></div><div><dt>Disponível para o projeto</dt><dd>${money(q.availableForProjectCents)}</dd></div><div><dt>Cobertura</dt><dd>${coverage}%</dd></div><div><dt>${q.hasEnoughCash ? 'Sobra após pagamento' : 'Valor que falta'}</dt><dd>${q.hasEnoughCash ? money(q.projectedBalanceAfterPaymentCents) : money(q.gapCents)}</dd></div>${q.hasEnoughCash ? '' : `<div><dt>Rateio sugerido por unidade</dt><dd>${money(q.suggestedExtraPerUnitCents)}</dd></div>`}</dl>`;
+      <dl><div><dt>Preço informado</dt><dd>${money(q.quoteCents)}</dd></div><div><dt>Margem de contingência</dt><dd>${money(q.contingencyCents)}</dd></div><div><dt>Custo planejado</dt><dd>${money(q.plannedQuoteCents)}</dd></div><div><dt>Caixa atual</dt><dd>${money(q.cashBalanceCents)}</dd></div><div><dt>Reserva protegida</dt><dd>${money(q.protectedReserveCents)}</dd></div><div><dt>Compromissos já assumidos</dt><dd>${money(q.committedCents)}</dd></div><div><dt>Disponível para o projeto</dt><dd>${money(q.availableForProjectCents)}</dd></div><div><dt>Cobertura</dt><dd>${coverage}%</dd></div><div><dt>Saldo após pagamento</dt><dd>${money(q.projectedBalanceAfterPaymentCents)}</dd></div><div><dt>${q.gapCents ? 'Déficit a cobrir' : 'Situação'}</dt><dd>${q.gapCents ? money(q.gapCents) : 'Cabe no caixa disponível'}</dd></div><div><dt>Rateio de referência</dt><dd>${splitText}</dd></div></dl>`;
     result.appendChild(card);
   }
 }
@@ -68,7 +393,7 @@ async function renderProjectionHistory() {
   const history = $('#projection-history');
   const items = (await listProjections()).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   if (!items.length) { history.innerHTML = '<p class="muted">Nenhuma projeção salva ainda.</p>'; return; }
-  history.innerHTML = items.slice(0, 5).map(item => `<article class="history-item"><strong>${item.name}</strong><span>${new Date(item.createdAt).toLocaleString('pt-BR')}</span><small>${item.quotes.length} orçamento(s) registrado(s)</small></article>`).join('');
+  history.innerHTML = items.slice(0, 5).map(item => `<article class="history-item"><strong>${escapeHtml(item.name)}</strong><span>${escapeHtml(new Date(item.createdAt).toLocaleString('pt-BR'))}</span><small>${Number(item.quotes?.length ?? 0)} orçamento(s) registrado(s)</small></article>`).join('');
 }
 
 async function calculateProjection(save = false) {
@@ -77,12 +402,14 @@ async function calculateProjection(save = false) {
   const name = $('#project-name').value.trim() || 'Projeto sem nome';
   const cashBalanceCents = toCents($('#cash-balance').value);
   const protectedReserveCents = toCents($('#protected-reserve').value);
+  const committedCents = toCents($('#committed-amount').value);
+  const contingencyBasisPoints = Math.round((Number($('#contingency-percent').value) || 0) * 100);
   const activeUnits = Number($('#active-units').value);
-  const project = evaluateProject({ name, cashBalanceCents, protectedReserveCents, activeUnits, quotes });
+  const project = evaluateProject({ name, cashBalanceCents, protectedReserveCents, committedCents, contingencyBasisPoints, activeUnits, quotes });
   renderProjection(project);
-  await Promise.all([setSetting('cashBalanceCents', cashBalanceCents), setSetting('protectedReserveCents', protectedReserveCents), setSetting('activeUnits', activeUnits)]);
+  await Promise.all([setSetting('cashBalanceCents', cashBalanceCents), setSetting('protectedReserveCents', protectedReserveCents), setSetting('committedCents', committedCents), setSetting('contingencyBasisPoints', contingencyBasisPoints), setSetting('activeUnits', activeUnits)]);
   if (save) {
-    await saveProjection({ id: crypto.randomUUID(), createdAt: new Date().toISOString(), name, cashBalanceCents, protectedReserveCents, activeUnits, quotes });
+    await saveProjection({ id: crypto.randomUUID(), createdAt: new Date().toISOString(), name, cashBalanceCents, protectedReserveCents, committedCents, contingencyBasisPoints, activeUnits, quotes });
     await renderProjectionHistory();
     $('#save-feedback').textContent = 'Projeção salva no dispositivo.';
     setTimeout(() => { $('#save-feedback').textContent = ''; }, 2500);
@@ -94,7 +421,7 @@ function renderUnits(units) {
   if (!units.length) { box.innerHTML = '<p class="muted">Nenhuma unidade cadastrada.</p>'; return; }
   box.innerHTML = units.map(unit => {
     const phones = unit.contacts?.filter(c => c.type === 'phone')?.length ?? (unit.phone ? 1 : 0);
-    return `<article class="unit-row"><div><strong>${unit.label ?? `Apartamento ${unit.id}`}</strong><span>${unit.responsibleName ?? 'Responsável não informado'}</span></div><small>${phones} telefone(s) cadastrado(s)</small></article>`;
+    return `<article class="unit-row"><div><strong>${escapeHtml(unit.label ?? `Apartamento ${unit.id}`)}</strong><span>${escapeHtml(unit.responsibleName ?? 'Responsável não informado')}</span></div><small>${phones} telefone(s) cadastrado(s)</small></article>`;
   }).join('');
 }
 
@@ -109,7 +436,7 @@ function renderHistory(periods) {
 }
 
 function fillUnitSelectors() {
-  const options = importedUnits.map(u => `<option value="${u.id}">${u.label ?? `Apartamento ${u.id}`}</option>`).join('');
+  const options = importedUnits.map(u => `<option value="${escapeHtml(u.id)}">${escapeHtml(u.label ?? `Apartamento ${u.id}`)}</option>`).join('');
   $('#obligation-unit').innerHTML = options || '<option value="">Importe/cadastre as unidades</option>';
 }
 
@@ -131,8 +458,8 @@ function renderObligations() {
     const pending = outstandingCents(o);
     const statusLabel = o.status === 'paid' ? 'Quitada' : o.status === 'partial' ? 'Parcial' : o.status === 'cancelled' ? 'Cancelada' : 'Em aberto';
     return `<article class="obligation-row">
-      <div class="obligation-main"><strong>${unit?.label ?? `Unidade ${o.unitId}`} • ${kindLabel(o.kind)}</strong><span>${o.description ?? ''}</span><small>Vencimento: ${o.dueDate ?? 'não informado'} • Total: ${money(o.amountCents)}${o.paidCents ? ` • Pago: ${money(o.paidCents)}` : ''}</small></div>
-      <div class="obligation-actions"><span class="status-badge ${o.status === 'paid' ? 'ok' : o.status === 'cancelled' ? 'neutral' : 'attention'}">${statusLabel}${pending ? ` • falta ${money(pending)}` : ''}</span>${o.status !== 'paid' && o.status !== 'cancelled' ? `<button type="button" class="small-button pay-obligation" data-id="${o.id}">Registrar pagamento</button>` : ''}</div>
+      <div class="obligation-main"><strong>${escapeHtml(unit?.label ?? `Unidade ${o.unitId}`)} • ${escapeHtml(kindLabel(o.kind))}</strong><span>${escapeHtml(o.description ?? '')}</span><small>Vencimento: ${escapeHtml(o.dueDate ?? 'não informado')} • Total: ${money(o.amountCents)}${o.paidCents ? ` • Pago: ${money(o.paidCents)}` : ''}</small></div>
+      <div class="obligation-actions"><span class="status-badge ${o.status === 'paid' ? 'ok' : o.status === 'cancelled' ? 'neutral' : 'attention'}">${escapeHtml(statusLabel)}${pending ? ` • falta ${money(pending)}` : ''}</span>${o.status !== 'paid' && o.status !== 'cancelled' ? `<button type="button" class="small-button pay-obligation" data-id="${escapeHtml(o.id)}">Registrar pagamento</button>` : ''}</div>
     </article>`;
   }).join('');
   document.querySelectorAll('.pay-obligation').forEach(button => button.addEventListener('click', () => payObligation(button.dataset.id)));
@@ -202,14 +529,12 @@ async function payObligation(id) {
     });
     $('#obligation-feedback').textContent = updated.status === 'paid' ? 'Obrigação quitada.' : 'Pagamento parcial registrado.';
     await refreshLedger();
+    await refreshCashbook();
   } catch (error) {
     $('#obligation-feedback').textContent = `Pagamento não registrado: ${error.message}`;
   }
 }
 
-function escapeHtml(value) {
-  return String(value ?? '').replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
-}
 
 function activeCertificate(unitId, year) {
   return certificates.find(c => String(c.unitId) === String(unitId) && Number(c.year) === Number(year) && c.status === 'VALID') ?? null;
@@ -391,6 +716,14 @@ function renderLedgerCompliance() {
 async function refreshImportedData() {
   const [meta, residential, units, periods] = await Promise.all([getImportMeta(), getResidential(), listUnits(), listPeriods()]);
   residentialData = residential;
+  const privateMeta = await getSetting('privateProfileMeta', null);
+  if (privateMeta && residential) {
+    $('#private-profile-state').textContent = 'Carregado';
+    $('#private-profile-state').className = 'status-badge ok';
+  } else {
+    $('#private-profile-state').textContent = 'Não carregado';
+    $('#private-profile-state').className = 'status-badge neutral';
+  }
   importedPeriods = periods.sort((a,b)=>a.id.localeCompare(b.id));
   importedUnits = units.sort((a,b)=>String(a.id).localeCompare(String(b.id)));
   fillUnitSelectors();
@@ -411,7 +744,7 @@ async function refreshImportedData() {
   renderUnits(units); renderHistory(periods);
   if (meta.latestBalanceCents != null) $('#cash-balance').value = (meta.latestBalanceCents/100).toFixed(2);
   $('#active-units').value = units.filter(u => u.active !== false).length || 5;
-  if (residential?.name) document.title = `Conta Certa — ${residential.name}`;
+  if (unlockedUntil) document.title = normalDocumentTitle();
   await refreshLedger();
 }
 
@@ -422,8 +755,14 @@ async function importSelectedFile() {
     const bundle = JSON.parse(await file.text());
     validateImportBundle(bundle);
     const summary = summarizeImport(bundle);
-    await replaceImportedData(bundle, summary);
-    $('#import-feedback').textContent = `Importação concluída: ${summary.periodCount} competências, ${summary.classifiedCount} classificadas e ${summary.reviewCount} em revisão manual.`;
+    const privateMeta = await getSetting('privateProfileMeta', null);
+    if (privateMeta) {
+      const [currentResidential, currentUnits] = await Promise.all([getResidential(), listUnits()]);
+      await replaceImportedData({ ...bundle, residential: currentResidential ?? bundle.residential, units: currentUnits.length ? currentUnits : bundle.units }, summary);
+    } else {
+      await replaceImportedData(bundle, summary);
+    }
+    $('#import-feedback').textContent = `Importação concluída: ${summary.periodCount} competências, ${summary.classifiedCount} classificadas e ${summary.reviewCount} em revisão manual.${privateMeta ? ' O cadastro privado foi preservado.' : ''}`;
     await refreshImportedData();
   } catch (error) {
     $('#import-feedback').textContent = `Importação não realizada: ${error.message}`;
@@ -440,13 +779,18 @@ function initializeDates() {
   $('#obligation-due').value = `${competence}-10`;
   $('#monthly-due').value = `${competence}-10`;
   $('#monthly-amount').value = '190.00';
+  $('#closing-competence').value = competence;
+  $('#movement-date').value = `${competence}-01`;
 }
 
 async function init() {
+  await initializeSecurity();
   quoteRow({ supplier: 'Orçamento A' });
   initializeDates();
   $('#cash-balance').value = ((await getSetting('cashBalanceCents', 125872)) / 100).toFixed(2);
   $('#protected-reserve').value = ((await getSetting('protectedReserveCents', 0)) / 100).toFixed(2);
+  $('#committed-amount').value = ((await getSetting('committedCents', 0)) / 100).toFixed(2);
+  $('#contingency-percent').value = ((await getSetting('contingencyBasisPoints', 0)) / 100).toFixed(2);
   $('#active-units').value = await getSetting('activeUnits', 5);
   await renderProjectionHistory();
   await refreshImportedData();
@@ -454,12 +798,22 @@ async function init() {
   $('#calculate').addEventListener('click', () => calculateProjection(false));
   $('#save-projection').addEventListener('click', () => calculateProjection(true));
   $('#import-button').addEventListener('click', importSelectedFile);
+  $('#private-profile-import').addEventListener('click', importPrivateProfileFile);
+  $('#create-backup').addEventListener('click', createEncryptedBackup);
+  $('#restore-backup').addEventListener('click', restoreEncryptedBackup);
+  $('#closing-competence').addEventListener('change', async () => { const c=$('#closing-competence').value; $('#movement-date').value=`${c}-01`; renderClosingView(); });
+  $('#closing-opening-balance').addEventListener('input', renderClosingView);
+  $('#save-movement').addEventListener('click', addCashMovement);
+  $('#close-month').addEventListener('click', closeSelectedMonth);
+  $('#reopen-month').addEventListener('click', reopenSelectedMonth);
+  $('#download-statement').addEventListener('click', downloadMonthlyStatement);
   $('#save-obligation').addEventListener('click', addObligation);
   $('#generate-monthly').addEventListener('click', generateMonthlyBatch);
   $('#compliance-year').addEventListener('change', async () => { renderLedgerCompliance(); await syncClosingDate(); });
   $('#save-closing-date').addEventListener('click', saveClosingDate);
   $('#issue-eligible').addEventListener('click', issueEligibleBatch);
   $('#validate-certificate').addEventListener('click', validateCertificateFile);
+  await refreshCashbook();
   await syncClosingDate();
   await maybeAutoIssueCurrentYear();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});

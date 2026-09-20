@@ -60,3 +60,18 @@ test('competência legada marcada como bloqueante impede elegibilidade mesmo no 
   assert.equal(r.eligible,false);
   assert.deepEqual(r.reviewMonths,[6]);
 });
+
+
+test('ajustes de transporte já documentados podem ficar como resolved sem revisão manual', () => {
+  const may = period('2023-05','resolved');
+  may.reconciliation.code = 'SOURCE_OPENING_RESET';
+  const aug = period('2023-08','resolved');
+  aug.reconciliation.code = 'SOURCE_CARRYOVER_EXCLUDES_PRIOR_MONTH_MOVEMENT';
+  const bundle={residential:{id:'r'},units:[{id:'101'}],periods:[may,aug]};
+  const s=summarizeImport(bundle);
+  assert.equal(s.resolvedCount,2);
+  assert.equal(s.reviewCount,0);
+  assert.equal(s.classifiedCount,2);
+  assert.equal(requiresManualFinancialReview(may),false);
+  assert.equal(requiresManualFinancialReview(aug),false);
+});

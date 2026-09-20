@@ -1,53 +1,28 @@
-# Projeções de gastos e orçamentos
+# Projeções e comparação de orçamentos
 
-## Objetivo
+A área de projeções simula a contratação de obras, serviços ou melhorias sem alterar o caixa real.
 
-Permitir que a gestão avalie um gasto futuro antes de assumir o compromisso financeiro.
+A versão 0.9 considera, para cada orçamento:
 
-Exemplo: serviço de fachada, pintura, reforma, manutenção hidráulica, portão ou outro serviço extraordinário.
+- saldo atual em caixa;
+- reserva mínima protegida;
+- compromissos já assumidos;
+- margem de contingência opcional;
+- caixa efetivamente disponível para o projeto;
+- custo original do orçamento;
+- valor adicional da contingência;
+- custo total planejado;
+- percentual de cobertura pelo caixa disponível;
+- saldo projetado após a contratação;
+- déficit a cobrir, quando houver;
+- rateio de referência entre as unidades ativas.
 
-## Fluxo previsto
+## Rateio exato
 
-1. Criar um projeto de gasto.
-2. Informar descrição e categoria.
-3. Registrar um ou mais orçamentos recebidos.
-4. O Conta Certa consulta o saldo atual do caixa.
-5. Opcionalmente, desconta uma reserva mínima protegida.
-6. Para cada orçamento, calcula cobertura, déficit ou sobra.
-7. Se houver déficit, calcula apenas como referência o rateio por unidade.
-8. A gestão decide se aprova, adia ou cria uma taxa extraordinária.
+Quando existe déficit, o sistema distribui os centavos de forma exata entre as unidades. Assim, o total das parcelas sugeridas coincide com o déficit calculado, mesmo quando a divisão não é exata em centavos.
 
-## Fórmulas
+Exemplo: um déficit de R$ 741,28 dividido entre 5 unidades gera três cotas de R$ 148,26 e duas de R$ 148,25. A soma permanece exatamente R$ 741,28.
 
-```text
-caixa disponível para o projeto = saldo em caixa - reserva mínima protegida
-faltante = máximo(orçamento - caixa disponível, 0)
-saldo projetado após pagamento = saldo atual - orçamento
-rateio sugerido por unidade = teto(faltante / unidades ativas)
-```
+## Comparação sem decisão automática
 
-Todos os cálculos monetários são executados em centavos inteiros.
-
-## Regras de negócio
-
-- O sistema não escolhe automaticamente um fornecedor.
-- Cada orçamento permanece registrado de forma independente.
-- A projeção não altera o caixa real.
-- Somente uma contratação/lançamento confirmado gera despesa real.
-- Reserva mínima protegida é opcional e configurável.
-- O rateio sugerido não cria cobrança automaticamente.
-- Mudanças no saldo real devem permitir recalcular a projeção sem apagar o orçamento original.
-
-## Informações que a interface deve mostrar
-
-Para cada orçamento:
-
-- fornecedor ou identificação do orçamento;
-- valor total;
-- saldo atual;
-- reserva protegida;
-- caixa disponível para o projeto;
-- percentual coberto;
-- valor faltante;
-- saldo projetado após pagamento;
-- taxa extraordinária sugerida por unidade, quando aplicável.
+O Conta Certa mostra a diferença entre os cenários e a amplitude entre o menor e o maior custo planejado, mas não escolhe fornecedor nem transforma a projeção automaticamente em uma cobrança. A contratação e eventual taxa extraordinária continuam sendo decisões administrativas.

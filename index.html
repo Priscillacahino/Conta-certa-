@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0b3158">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'; worker-src 'self'">
   <meta name="description" content="Conta Certa — gestão financeira compartilhada para pequenos condomínios.">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
@@ -11,7 +13,22 @@
   <link rel="stylesheet" href="styles.css">
   <title>Conta Certa</title>
 </head>
-<body>
+<body class="app-locked">
+  <section id="security-gate" class="security-gate" aria-live="polite">
+    <div class="security-panel">
+      <img src="icons/icon-192.png" alt="Ícone Conta Certa" class="security-icon">
+      <span class="eyebrow">Proteção local</span>
+      <h2 id="security-title">Conta Certa protegido</h2>
+      <p id="security-help">Informe seu PIN ou senha para acessar os dados financeiros.</p>
+      <form id="security-form">
+        <label>PIN ou senha<input id="security-secret" type="password" minlength="6" maxlength="128" autocomplete="current-password" required></label>
+        <label id="security-confirm-wrap" hidden>Confirmar PIN ou senha<input id="security-confirm" type="password" minlength="6" maxlength="128" autocomplete="new-password"></label>
+        <button id="security-submit" type="submit">Desbloquear</button>
+      </form>
+      <p id="security-feedback" class="feedback" role="status"></p>
+      <small class="security-note">A credencial é validada somente neste aparelho. O Conta Certa não armazena a senha em texto puro.</small>
+    </div>
+  </section>
   <header class="app-header">
     <div class="brand-header">
       <img class="brand-app-icon" src="icons/icon-192.png" alt="Ícone do Conta Certa">
@@ -21,7 +38,7 @@
         <p>Contas transparentes, decisões mais claras.</p>
       </div>
     </div>
-    <div class="status-pill">Offline-first</div>
+    <div class="header-actions"><div class="status-pill">Offline-first</div><button id="lock-app" class="header-lock" type="button">Bloquear</button></div>
   </header>
 
   <nav class="app-nav" aria-label="Áreas do aplicativo">
@@ -62,6 +79,30 @@
         </label>
         <div class="actions"><button id="import-button" type="button">Importar no aparelho</button></div>
         <p id="import-feedback" class="feedback" role="status"></p>
+      </section>
+
+
+      <section class="card">
+        <div class="section-title compact">
+          <div><span class="eyebrow">Dados locais protegidos</span><h2>Cadastro privado do residencial</h2></div>
+          <span id="private-profile-state" class="status-badge neutral">Não carregado</span>
+        </div>
+        <p>Importe o arquivo <code>.private.json</code> com endereço, unidades, responsáveis e telefones. Esse cadastro não substitui o histórico financeiro e não deve ser publicado no GitHub.</p>
+        <label class="file-picker">Cadastro privado (.private.json)
+          <input id="private-profile-file" type="file" accept="application/json,.json,.private.json">
+        </label>
+        <div class="actions"><button id="private-profile-import" type="button">Importar cadastro privado</button></div>
+        <p id="private-profile-feedback" class="feedback" role="status"></p>
+      </section>
+
+      <section class="card">
+        <div class="section-title compact">
+          <div><span class="eyebrow">Acesso administrativo</span><h2>Segurança local</h2></div>
+          <span id="security-state" class="status-badge ok">Protegido</span>
+        </div>
+        <p>A sessão é bloqueada automaticamente após 10 minutos sem atividade e também pode ser bloqueada manualmente.</p>
+        <div class="actions"><button id="change-security-secret" class="secondary" type="button">Alterar PIN/senha</button><button id="lock-app-card" class="secondary" type="button">Bloquear agora</button></div>
+        <p id="security-settings-feedback" class="feedback" role="status"></p>
       </section>
 
       <section class="card">
@@ -193,7 +234,7 @@
     </section>
   </main>
 
-  <footer>Conta Certa • v0.7 — identidade visual e declaração definitiva</footer>
+  <footer>Conta Certa • v0.9.2 — histórico conciliado e segurança reforçada</footer>
   <script type="module" src="src/app.js"></script>
 </body>
 </html>

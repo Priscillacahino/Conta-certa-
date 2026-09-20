@@ -7,9 +7,9 @@ A planilha histórica é convertida para um arquivo JSON privado e importada loc
 - período identificado: maio/2015 a agosto/2026;
 - 136 competências mensais identificadas;
 - 106 competências totalmente conciliadas;
-- 16 competências com divergências explicadas e tratadas de forma explícita;
+- 18 competências com divergências explicadas e tratadas de forma explícita;
 - 12 competências de 2019 classificadas como **formato legado**, pois a planilha utilizava um controle auxiliar de fundo de reserva com semântica diferente do modelo atual;
-- apenas 2 competências permanecem em **revisão manual** por existir diferença de transporte de saldo sem lançamento explicativo identificado: maio/2023 e agosto/2023;
+- 0 competências permanecem em **revisão manual**; maio/2023 e agosto/2023 foram reclassificadas como `resolved` após revisão direta da fonte original;
 - saldo final da última competência disponível (agosto/2026): R$ 1.258,72.
 
 O Conta Certa não apaga a diferença original. Quando um erro ou regra antiga é compreendido, o arquivo de migração preserva o valor de origem, o cálculo reconstruído e a explicação usada para classificar a competência.
@@ -28,15 +28,17 @@ Diferenças de R$ 0,10 em fevereiro/2021, R$ 1,00 em novembro/2021 e R$ 0,02 em 
 ### Campos digitados com outra semântica
 Alguns meses possuem o campo de movimento mensal preenchido com o saldo final, valor sem sinal negativo ou outro total intermediário. Quando o saldo final e os lançamentos permitem identificar o comportamento com segurança, a competência é classificada como `resolved` e a divergência permanece documentada.
 
-## Pontos que ainda exigem confirmação
+## Fechamento dos pontos de 2023
 
-### Maio/2023
-Abril/2023 encerra em -R$ 55,73, enquanto maio/2023 começa em R$ 0,00. Não foi localizado lançamento que explique o ajuste de R$ 55,73.
+### Maio/2023 — `SOURCE_OPENING_RESET`
+Abril/2023 encerra em -R$ 55,73 e a própria fonte de maio/2023 registra saldo anterior de R$ 0,00. A diferença de +R$ 55,73 é preservada como **ajuste explícito de transporte de saldo da fonte**. Ela não é convertida em receita e não recebe uma causa econômica inventada.
 
-### Agosto/2023
-Julho/2023 encerra em R$ 604,05, enquanto agosto/2023 começa em R$ 404,13. Não foi localizado lançamento que explique a redução de R$ 199,92.
+### Agosto/2023 — `SOURCE_CARRYOVER_EXCLUDES_PRIOR_MONTH_MOVEMENT`
+Julho/2023 abre em R$ 404,13, registra R$ 199,92 no campo `SALDO PARA FUNDO DE RESERVA` e encerra em R$ 604,05. Agosto/2023 volta a abrir em R$ 404,13. Portanto, a diferença de -R$ 199,92 coincide exatamente com o movimento registrado no campo histórico de julho.
 
-Até que exista comprovação ou decisão de tratamento, esses dois pontos permanecem como revisão manual e não são corrigidos silenciosamente.
+Na migração, essa diferença é preservada como **ajuste explícito de transporte da fonte**, sem criar uma despesa fictícia e sem afirmar que ocorreu uma movimentação bancária externa que não esteja documentada.
+
+Com esse tratamento, as 136 competências estão classificadas: 106 `ok`, 18 `resolved`, 12 `legacy` e 0 `review`.
 
 ## Privacidade
 
