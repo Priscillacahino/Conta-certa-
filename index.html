@@ -24,6 +24,7 @@
     <button class="nav-button active" data-view="overview">Visão geral</button>
     <button class="nav-button" data-view="history">Histórico</button>
     <button class="nav-button" data-view="projections">Projeções</button>
+    <button class="nav-button" data-view="obligations">Obrigações</button>
     <button class="nav-button" data-view="compliance">Adimplência</button>
   </nav>
 
@@ -103,11 +104,57 @@
       <section class="card"><h2>Projeções salvas</h2><div id="projection-history"></div></section>
     </section>
 
+
+    <section class="view" id="view-obligations">
+      <section class="card intro">
+        <span class="eyebrow">Fonte oficial da adimplência</span>
+        <h2>Livro de obrigações</h2>
+        <p>Mensalidades, taxas extraordinárias, parcelamentos e outras cobranças ficam registradas por unidade. Pagamento parcial continua pendente até a quitação integral.</p>
+      </section>
+
+      <section class="kpi-grid obligation-kpis">
+        <article class="kpi"><span>Obrigações</span><strong id="obligation-total">0</strong><small>ativas no livro</small></article>
+        <article class="kpi"><span>Pendentes</span><strong id="obligation-pending">0</strong><small>abertas ou parciais</small></article>
+        <article class="kpi"><span>Saldo a receber</span><strong id="obligation-outstanding">R$ 0,00</strong><small>somatório pendente</small></article>
+      </section>
+
+      <section class="card">
+        <div class="section-title compact"><div><span class="eyebrow">Cobrança recorrente</span><h2>Gerar mensalidades</h2></div></div>
+        <div class="form-grid">
+          <label>Competência<input id="monthly-competence" type="month"></label>
+          <label>Valor por unidade (R$)<input id="monthly-amount" type="number" min="0" step="0.01"></label>
+          <label>Vencimento<input id="monthly-due" type="date"></label>
+        </div>
+        <div class="actions"><button id="generate-monthly" type="button">Gerar para unidades ativas</button></div>
+      </section>
+
+      <section class="card">
+        <div class="section-title compact"><div><span class="eyebrow">Lançamento individual</span><h2>Nova obrigação</h2></div></div>
+        <div class="form-grid">
+          <label>Unidade<select id="obligation-unit"></select></label>
+          <label>Tipo<select id="obligation-kind"><option value="monthly_contribution">Mensalidade</option><option value="extraordinary_fee">Taxa extraordinária</option><option value="installment">Parcelamento</option><option value="other">Outra obrigação</option></select></label>
+          <label class="wide">Descrição<input id="obligation-description" placeholder="Ex.: Taxa extraordinária — fachada"></label>
+          <label>Competência<input id="obligation-competence" type="month"></label>
+          <label>Vencimento<input id="obligation-due" type="date"></label>
+          <label>Valor (R$)<input id="obligation-amount" type="number" min="0" step="0.01"></label>
+        </div>
+        <div class="actions"><button id="save-obligation" type="button">Registrar obrigação</button></div>
+        <p id="obligation-feedback" class="feedback" role="status"></p>
+      </section>
+
+      <section class="card">
+        <div class="section-title compact"><h2>Obrigações registradas</h2><span class="muted">Pagamentos parciais permanecem visíveis</span></div>
+        <div id="obligation-list"><p class="muted">Nenhuma obrigação registrada.</p></div>
+      </section>
+
+      <section class="notice warning-notice"><strong>Regra crítica:</strong> parcelamento aberto, mensalidade pendente ou qualquer outra obrigação exigível impede a declaração de adimplência. Não existe botão para “forçar” uma unidade como adimplente.</section>
+    </section>
+
     <section class="view" id="view-compliance">
       <section class="card intro">
         <span class="eyebrow">Controle rigoroso</span>
         <h2>Adimplência anual</h2>
-        <p>A importação histórica serve como referência. A declaração automática será liberada somente pelo livro de obrigações do Conta Certa, com todas as cobranças exigíveis quitadas.</p>
+        <p>A declaração automática é calculada pelo livro de obrigações do Conta Certa. O exercício precisa conter as 12 mensalidades e não pode existir mensalidade, taxa ou parcelamento exigível em aberto.</p>
       </section>
       <section class="card">
         <label>Ano de referência<select id="compliance-year"></select></label>
@@ -117,7 +164,7 @@
     </section>
   </main>
 
-  <footer>Conta Certa • v0.4 — reconciliação histórica</footer>
+  <footer>Conta Certa • v0.5 — livro de obrigações</footer>
   <script type="module" src="src/app.js"></script>
 </body>
 </html>

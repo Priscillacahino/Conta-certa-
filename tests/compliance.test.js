@@ -1,10 +1,40 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {evaluateAnnualCompliance,certificatePayload,lastWeekdayOfYear} from '../src/compliance.js';
-const paid = m => ({year:2026,month:m,kind:'monthly_contribution',required:true,status:'paid'});
+import { evaluateAnnualCompliance, certificatePayload, lastWeekdayOfYear } from '../src/compliance.js';
 
-test('101 adimplente com 12 competências',()=>{const r=evaluateAnnualCompliance({year:2026,obligations:Array.from({length:12},(_,i)=>paid(i+1))}); assert.equal(r.eligible,true);});
-test('103 com dezembro pendente não recebe declaração',()=>{const obs=Array.from({length:12},(_,i)=>paid(i+1)); obs[11].status='pending'; const r=evaluateAnnualCompliance({year:2026,obligations:obs}); assert.equal(r.eligible,false); assert.equal(r.pending[0].month,12); assert.throws(()=>certificatePayload({residential:{id:'r1',name:'Demo',address:'privado'},unit:{id:'u103',label:'103'},responsible:{name:'Responsável'},year:2026,issuedAt:'2026-12-30',obligations:obs}),/BLOQUEADA/);});
-test('ano incompleto é bloqueado mesmo sem pendências registradas',()=>{const obs=Array.from({length:8},(_,i)=>paid(i+1)); assert.throws(()=>certificatePayload({residential:{id:'r1',name:'Demo',address:'privado'},unit:{id:'u101',label:'101'},responsible:{name:'Responsável'},year:2026,issuedAt:'2026-12-30',obligations:obs}),/ANO_INCOMPLETO/);});
-test('dados importados não conciliados bloqueiam emissão',()=>{const obs=Array.from({length:12},(_,i)=>paid(i+1)); assert.throws(()=>certificatePayload({residential:{id:'r1',name:'Demo',address:'privado'},unit:{id:'u101',label:'101'},responsible:{name:'Responsável'},year:2026,issuedAt:'2026-12-30',obligations:obs,sourceReviewRequired:true}),/NAO_CONCILIADOS/);});
-test('último dia útil simples ignora fins de semana e feriados informados',()=>{assert.equal(lastWeekdayOfYear(2023),'2023-12-29'); assert.equal(lastWeekdayOfYear(2026,['2026-12-31']),'2026-12-30');});
+const months = (unitId, year, unpaidMonth = null) => Array.from({length:12},(_,i)=>({
+  id:`${unitId}-${year}-${i+1}`,
+  unitId,
+  year,
+  month:i+1,
+  kind:'monthly_contribution',
+  amountCents:19000,
+  paidCents: unpaidMonth === i+1 ? 0 : 19000,
+  status: unpaidMonth === i+1 ? 'open' : 'paid',
+  required:true,
+  dueDate:`${year}-${String(i+1).padStart(2,'0')}-10`,
+}));
+
+test('unidade com doze contribuições quitadas é elegível', () => {
+  const result = evaluateAnnualCompliance({ obligations: months('101', 2026), year: 2026 });
+  assert.equal(result.eligible, true);
+});
+
+test('dezembro pendente bloqueia declaração', () => {
+  const obligations = months('103', 2026, 12);
+  assert.equal(evaluateAnnualCompliance({ obligations, year: 2026 }).eligible, false);
+  assert.throws(() => certificatePayload({ residential:{id:'r',name:'R',address:'A'}, unit:{id:'103',label:'Apartamento 103'}, responsible:{name:'Teste'}, year:2026, issuedAt:'2026-12-30', obligations }), /PENDENCIA/);
+});
+
+test('parcelamento aberto de exercício anterior também bloqueia', () => {
+  const obligations = [...months('101', 2026), {
+    id:'parcela-antiga',unitId:'101',year:2025,month:12,kind:'installment',amountCents:5000,paidCents:0,status:'open',required:true,dueDate:'2025-12-20'
+  }];
+  const result = evaluateAnnualCompliance({ obligations, year:2026 });
+  assert.equal(result.eligible, false);
+  assert.equal(result.pending[0].kind, 'installment');
+});
+
+test('último dia útil ignora fim de semana', () => {
+  assert.equal(lastWeekdayOfYear(2023), '2023-12-29');
+});

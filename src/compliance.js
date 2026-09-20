@@ -1,9 +1,17 @@
+import { obligationsBlockingCertificate } from './obligations.js';
+
 export function evaluateAnnualCompliance({ obligations, year, requireTwelveMonths = true }) {
-  const due = obligations.filter(o => o.year === year && o.required !== false && o.status !== 'cancelled');
-  const pending = due.filter(o => o.status !== 'paid');
-  const coveredMonths = new Set(due.filter(o => o.kind === 'monthly_contribution').map(o => o.month));
+  const currentYear = obligations.filter(o => Number(o.year) === Number(year) && o.required !== false && o.status !== 'cancelled');
+  const coveredMonths = new Set(currentYear.filter(o => o.kind === 'monthly_contribution').map(o => o.month));
   const completeYear = !requireTwelveMonths || coveredMonths.size === 12;
-  return { eligible: completeYear && pending.length === 0, checked: due.length, pending, completeYear, coveredMonths: [...coveredMonths].sort((a,b)=>a-b) };
+  const pending = obligationsBlockingCertificate(obligations, year);
+  return {
+    eligible: completeYear && pending.length === 0,
+    checked: currentYear.length,
+    pending,
+    completeYear,
+    coveredMonths: [...coveredMonths].sort((a,b)=>a-b),
+  };
 }
 
 export function certificatePayload({ residential, unit, responsible, year, issuedAt, obligations, sourceReviewRequired = false }) {

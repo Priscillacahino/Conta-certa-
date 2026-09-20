@@ -1,6 +1,15 @@
 import { evaluateProject } from './projections.js';
-import { getSetting, setSetting, saveProjection, listProjections, replaceImportedData, getImportMeta, getResidential, listUnits, listPeriods } from './db.js';
-import { validateImportBundle, summarizeImport, summarizeByYear, importedYearCertificateStatus } from './migration.js';
+import {
+  getSetting, setSetting, saveProjection, listProjections,
+  replaceImportedData, getImportMeta, getResidential, listUnits, listPeriods,
+  saveObligation, saveObligations, listObligations, registerObligationPayment,
+} from './db.js';
+import { validateImportBundle, summarizeImport, summarizeByYear } from './migration.js';
+import { evaluateAnnualCompliance } from './compliance.js';
+import {
+  normalizeObligation, ledgerSummary, createMonthlyObligations,
+  applyPayment, outstandingCents,
+} from './obligations.js';
 
 const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const money = cents => brl.format((cents ?? 0) / 100);
@@ -8,6 +17,7 @@ const toCents = value => Math.round((Number(String(value).replace(',', '.')) || 
 const $ = selector => document.querySelector(selector);
 let importedPeriods = [];
 let importedUnits = [];
+let ledger = [];
 
 function setView(name) {
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === `view-${name}`));
@@ -94,24 +104,118 @@ function renderHistory(periods) {
   }).join('')}</tbody></table></div>`;
 }
 
-function renderCompliance(periods, units) {
+function fillUnitSelectors() {
+  const options = importedUnits.map(u => `<option value="${u.id}">${u.label ?? `Apartamento ${u.id}`}</option>`).join('');
+  $('#obligation-unit').innerHTML = options || '<option value="">Importe/cadastre as unidades</option>';
+}
+
+const kindLabel = kind => ({
+  monthly_contribution: 'Mensalidade', extraordinary_fee: 'Taxa extraordinária', installment: 'Parcelamento', other: 'Outra obrigação'
+}[kind] ?? kind);
+
+function renderObligations() {
+  const summary = ledgerSummary(ledger);
+  $('#obligation-total').textContent = summary.count;
+  $('#obligation-pending').textContent = summary.pendingCount;
+  $('#obligation-outstanding').textContent = money(summary.outstandingCents);
+  const box = $('#obligation-list');
+  if (!ledger.length) { box.innerHTML = '<p class="muted">Nenhuma obrigação registrada.</p>'; return; }
+  const unitsById = new Map(importedUnits.map(u => [String(u.id), u]));
+  const ordered = [...ledger].sort((a,b) => (b.dueDate ?? '').localeCompare(a.dueDate ?? '') || String(a.unitId).localeCompare(String(b.unitId)));
+  box.innerHTML = ordered.map(o => {
+    const unit = unitsById.get(String(o.unitId));
+    const pending = outstandingCents(o);
+    const statusLabel = o.status === 'paid' ? 'Quitada' : o.status === 'partial' ? 'Parcial' : o.status === 'cancelled' ? 'Cancelada' : 'Em aberto';
+    return `<article class="obligation-row">
+      <div class="obligation-main"><strong>${unit?.label ?? `Unidade ${o.unitId}`} • ${kindLabel(o.kind)}</strong><span>${o.description ?? ''}</span><small>Vencimento: ${o.dueDate ?? 'não informado'} • Total: ${money(o.amountCents)}${o.paidCents ? ` • Pago: ${money(o.paidCents)}` : ''}</small></div>
+      <div class="obligation-actions"><span class="status-badge ${o.status === 'paid' ? 'ok' : o.status === 'cancelled' ? 'neutral' : 'attention'}">${statusLabel}${pending ? ` • falta ${money(pending)}` : ''}</span>${o.status !== 'paid' && o.status !== 'cancelled' ? `<button type="button" class="small-button pay-obligation" data-id="${o.id}">Registrar pagamento</button>` : ''}</div>
+    </article>`;
+  }).join('');
+  document.querySelectorAll('.pay-obligation').forEach(button => button.addEventListener('click', () => payObligation(button.dataset.id)));
+}
+
+async function refreshLedger() {
+  ledger = (await listObligations()).map(normalizeObligation);
+  renderObligations();
+  renderLedgerCompliance();
+}
+
+async function addObligation() {
+  const unitId = $('#obligation-unit').value;
+  const kind = $('#obligation-kind').value;
+  const amountCents = toCents($('#obligation-amount').value);
+  const dueDate = $('#obligation-due').value;
+  const [year, month] = ($('#obligation-competence').value || '').split('-').map(Number);
+  if (!unitId || !amountCents || !dueDate || !year || !month) {
+    $('#obligation-feedback').textContent = 'Preencha unidade, competência, vencimento e valor.';
+    return;
+  }
+  const obligation = normalizeObligation({
+    id: crypto.randomUUID(), unitId, kind,
+    description: $('#obligation-description').value.trim() || kindLabel(kind),
+    amountCents, paidCents: 0, dueDate, year, month, required: true,
+  });
+  await saveObligation(obligation);
+  $('#obligation-feedback').textContent = 'Obrigação registrada.';
+  $('#obligation-amount').value = '';
+  await refreshLedger();
+}
+
+async function generateMonthlyBatch() {
+  const competence = $('#monthly-competence').value;
+  const amountCents = toCents($('#monthly-amount').value);
+  const dueDate = $('#monthly-due').value;
+  const [year, month] = competence.split('-').map(Number);
+  if (!year || !month || !amountCents || !dueDate || !importedUnits.length) {
+    $('#obligation-feedback').textContent = 'Informe competência, vencimento e valor e tenha unidades cadastradas.';
+    return;
+  }
+  const newItems = createMonthlyObligations({ units: importedUnits, year, month, amountCents, dueDate });
+  const existingIds = new Set(ledger.map(o => o.id));
+  const unique = newItems.filter(o => !existingIds.has(o.id));
+  if (!unique.length) { $('#obligation-feedback').textContent = 'As mensalidades dessa competência já existem.'; return; }
+  await saveObligations(unique);
+  $('#obligation-feedback').textContent = `${unique.length} mensalidade(s) gerada(s).`;
+  await refreshLedger();
+}
+
+async function payObligation(id) {
+  const obligation = ledger.find(o => o.id === id);
+  if (!obligation) return;
+  const openCents = outstandingCents(obligation);
+  const answer = window.prompt(`Saldo pendente: ${money(openCents)}\nInforme o valor recebido (R$):`, (openCents / 100).toFixed(2));
+  if (answer == null) return;
+  const paymentCents = toCents(answer);
+  try {
+    const updated = applyPayment(obligation, paymentCents);
+    await registerObligationPayment({
+      obligation: updated,
+      payment: { id: crypto.randomUUID(), obligationId: id, unitId: obligation.unitId, amountCents: paymentCents, paidAt: new Date().toISOString() },
+    });
+    $('#obligation-feedback').textContent = updated.status === 'paid' ? 'Obrigação quitada.' : 'Pagamento parcial registrado.';
+    await refreshLedger();
+  } catch (error) {
+    $('#obligation-feedback').textContent = `Pagamento não registrado: ${error.message}`;
+  }
+}
+
+function renderLedgerCompliance() {
   const select = $('#compliance-year');
-  const years = [...new Set(periods.map(p => p.year))].sort((a,b)=>b-a);
-  if (!years.length) { select.innerHTML = ''; $('#compliance-list').innerHTML = '<p class="muted">Nenhum histórico importado.</p>'; return; }
+  const years = [...new Set(ledger.map(o => Number(o.year)).filter(Boolean))].sort((a,b)=>b-a);
+  if (!years.length || !importedUnits.length) {
+    select.innerHTML = '';
+    $('#compliance-list').innerHTML = '<p class="muted">Cadastre obrigações mensais para iniciar a avaliação oficial de adimplência.</p>';
+    return;
+  }
   const current = Number(select.value) || years[0];
   select.innerHTML = years.map(y => `<option value="${y}" ${y===current?'selected':''}>${y}</option>`).join('');
   const year = Number(select.value);
-  const results = units.map(unit => ({ unit, status: importedYearCertificateStatus({ periods, year, unitId: unit.id }) }));
-  $('#compliance-list').innerHTML = results.map(({unit,status}) => {
-    const label = status.reason === 'HISTORICO_REFERENCIAL'
-      ? 'Histórico de referência — emissão automática desabilitada'
-      : status.eligible
-        ? 'Elegível'
-        : status.reason === 'ANO_INCOMPLETO'
-          ? 'Bloqueada: ano incompleto'
-          : status.reason === 'IMPORTACAO_REQUER_REVISAO'
-            ? 'Bloqueada: há evidência não validada'
-            : 'Bloqueada: pagamento não comprovado';
+  $('#compliance-list').innerHTML = importedUnits.map(unit => {
+    const obligations = ledger.filter(o => String(o.unitId) === String(unit.id));
+    const status = evaluateAnnualCompliance({ obligations, year });
+    let label = 'Elegível para emissão';
+    if (!status.completeYear) label = 'Bloqueada: exercício incompleto no livro';
+    else if (status.pending.length) label = `Bloqueada: ${status.pending.length} obrigação(ões) pendente(s)`;
     return `<article class="compliance-row"><div><strong>${unit.label ?? unit.id}</strong><span>${unit.responsibleName ?? ''}</span></div><span class="status-badge ${status.eligible?'ok':'attention'}">${label}</span></article>`;
   }).join('');
 }
@@ -120,8 +224,11 @@ async function refreshImportedData() {
   const [meta, residential, units, periods] = await Promise.all([getImportMeta(), getResidential(), listUnits(), listPeriods()]);
   importedPeriods = periods.sort((a,b)=>a.id.localeCompare(b.id));
   importedUnits = units.sort((a,b)=>String(a.id).localeCompare(String(b.id)));
+  fillUnitSelectors();
   if (!meta) {
     $('#import-state').textContent = 'Sem importação';
+    renderUnits(units);
+    await refreshLedger();
     return;
   }
   $('#import-state').textContent = 'Base importada'; $('#import-state').className = 'status-badge ok';
@@ -132,10 +239,11 @@ async function refreshImportedData() {
   $('#kpi-reconciled').textContent = meta.classifiedCount ?? meta.reconciledCount;
   $('#kpi-review').textContent = `${meta.reviewCount} revisão manual • ${meta.resolvedCount ?? 0} explicada(s) • ${meta.legacyCount ?? 0} legado`;
   $('#kpi-units').textContent = units.length;
-  renderUnits(units); renderHistory(periods); renderCompliance(periods, units);
+  renderUnits(units); renderHistory(periods);
   if (meta.latestBalanceCents != null) $('#cash-balance').value = (meta.latestBalanceCents/100).toFixed(2);
   $('#active-units').value = units.filter(u => u.active !== false).length || 5;
   if (residential?.name) document.title = `Conta Certa — ${residential.name}`;
+  await refreshLedger();
 }
 
 async function importSelectedFile() {
@@ -153,8 +261,21 @@ async function importSelectedFile() {
   }
 }
 
+function initializeDates() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const competence = `${y}-${m}`;
+  $('#obligation-competence').value = competence;
+  $('#monthly-competence').value = competence;
+  $('#obligation-due').value = `${competence}-10`;
+  $('#monthly-due').value = `${competence}-10`;
+  $('#monthly-amount').value = '190.00';
+}
+
 async function init() {
   quoteRow({ supplier: 'Orçamento A' });
+  initializeDates();
   $('#cash-balance').value = ((await getSetting('cashBalanceCents', 125872)) / 100).toFixed(2);
   $('#protected-reserve').value = ((await getSetting('protectedReserveCents', 0)) / 100).toFixed(2);
   $('#active-units').value = await getSetting('activeUnits', 5);
@@ -164,7 +285,9 @@ async function init() {
   $('#calculate').addEventListener('click', () => calculateProjection(false));
   $('#save-projection').addEventListener('click', () => calculateProjection(true));
   $('#import-button').addEventListener('click', importSelectedFile);
-  $('#compliance-year').addEventListener('change', () => renderCompliance(importedPeriods, importedUnits));
+  $('#save-obligation').addEventListener('click', addObligation);
+  $('#generate-monthly').addEventListener('click', generateMonthlyBatch);
+  $('#compliance-year').addEventListener('change', renderLedgerCompliance);
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
 

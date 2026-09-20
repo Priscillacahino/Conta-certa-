@@ -1,11 +1,13 @@
 const DB_NAME = 'conta-certa';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const SETTINGS = 'settings';
 const PROJECTIONS = 'projections';
 const RESIDENTIAL = 'residential';
 const UNITS = 'units';
 const PERIODS = 'periods';
 const IMPORT_META = 'importMeta';
+const OBLIGATIONS = 'obligations';
+const PAYMENTS = 'payments';
 
 function openDb() {
   return new Promise((resolve, reject) => {
@@ -18,6 +20,8 @@ function openDb() {
       if (!db.objectStoreNames.contains(UNITS)) db.createObjectStore(UNITS, { keyPath: 'id' });
       if (!db.objectStoreNames.contains(PERIODS)) db.createObjectStore(PERIODS, { keyPath: 'id' });
       if (!db.objectStoreNames.contains(IMPORT_META)) db.createObjectStore(IMPORT_META);
+      if (!db.objectStoreNames.contains(OBLIGATIONS)) db.createObjectStore(OBLIGATIONS, { keyPath: 'id' });
+      if (!db.objectStoreNames.contains(PAYMENTS)) db.createObjectStore(PAYMENTS, { keyPath: 'id' });
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
@@ -59,6 +63,31 @@ export const getResidential = () => getAll(RESIDENTIAL).then(items => items[0] ?
 export const listUnits = () => getAll(UNITS);
 export const listPeriods = () => getAll(PERIODS);
 export const getImportMeta = () => getFrom(IMPORT_META, 'current', null);
+export const saveObligation = obligation => putTo(OBLIGATIONS, obligation);
+export const listObligations = () => getAll(OBLIGATIONS);
+export const listPayments = () => getAll(PAYMENTS);
+
+export async function saveObligations(obligations = []) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(OBLIGATIONS, 'readwrite');
+    const store = tx.objectStore(OBLIGATIONS);
+    for (const obligation of obligations) store.put(obligation);
+    tx.oncomplete = () => resolve(obligations);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function registerObligationPayment({ obligation, payment }) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([OBLIGATIONS, PAYMENTS], 'readwrite');
+    tx.objectStore(OBLIGATIONS).put(obligation);
+    tx.objectStore(PAYMENTS).put(payment);
+    tx.oncomplete = () => resolve({ obligation, payment });
+    tx.onerror = () => reject(tx.error);
+  });
+}
 
 export async function replaceImportedData(bundle, summary) {
   const db = await openDb();

@@ -62,6 +62,18 @@ Para cada orçamento o Conta Certa deverá mostrar:
 
 A sugestão de rateio é apenas um cálculo. A criação de uma taxa extraordinária continua sendo uma decisão do responsável pela gestão.
 
+## Livro de obrigações
+
+A partir da versão 0.5, o Conta Certa possui um **livro de obrigações** próprio. Ele passa a ser a fonte oficial para mensalidades, taxas extraordinárias, parcelamentos e outras cobranças exigíveis por unidade.
+
+Cada obrigação registra valor, competência, vencimento, valor pago e situação. Pagamento parcial não encerra a obrigação: o saldo continua pendente até a quitação integral.
+
+O sistema também pode gerar a mensalidade de uma competência para todas as unidades ativas de uma só vez. Os valores continuam configuráveis e não ficam presos ao cenário de demonstração.
+
+Parcelamentos recebem tratamento rigoroso. Cada parcela é registrada individualmente e **qualquer parcelamento aberto bloqueia a declaração de adimplência**, inclusive quando se originou de uma dívida anterior ao exercício analisado. Não existe comando administrativo para forçar uma unidade como adimplente sem que as obrigações estejam quitadas ou formalmente canceladas com histórico preservado.
+
+Veja também: [`docs/OBRIGACOES.md`](docs/OBRIGACOES.md).
+
 ## Adimplência anual
 
 A declaração anual não pode ser criada manualmente. O motor verifica todas as obrigações exigíveis do exercício de cada unidade. Havendo qualquer pendência, a emissão é bloqueada.
@@ -117,7 +129,7 @@ A emissão anual será autorizada somente pelo **livro de obrigações do Conta 
 
 ## Status
 
-🚧 **Em desenvolvimento — v0.4 (reconciliação histórica e endurecimento da adimplência).**
+🚧 **Em desenvolvimento — v0.5 (livro de obrigações e base oficial da adimplência).**
 
 A planilha histórica real será utilizada para validação e migração dos dados, sem expor nomes de moradores, telefones ou endereço completo nos dados públicos de demonstração.
 

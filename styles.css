@@ -88,3 +88,13 @@ footer { text-align: center; color: #7a8796; font-size: .8rem; padding: 6px 18px
 select{width:100%;padding:.8rem;border:1px solid #cfd8e5;border-radius:12px;background:#fff;font:inherit;color:#21324a}
 @media(min-width:760px){.kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.app-nav{justify-content:center}}
 .table-note{display:block;margin-top:.25rem;color:#718096;white-space:nowrap}
+
+/* v0.5 — livro de obrigações */
+.obligation-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+.obligation-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1rem;align-items:center;padding:1rem 0;border-bottom:1px solid #edf1f6}
+.obligation-row:last-child{border-bottom:0}
+.obligation-main{display:flex;flex-direction:column;gap:.25rem;min-width:0}
+.obligation-main span,.obligation-main small{color:#66758a}
+.obligation-actions{display:flex;align-items:flex-end;flex-direction:column;gap:.5rem}
+.small-button{padding:.55rem .75rem;font-size:.8rem;background:#eaf0f7;color:#183153}
+@media(max-width:620px){.obligation-kpis{grid-template-columns:1fr}.obligation-row{grid-template-columns:1fr}.obligation-actions{align-items:flex-start}.small-button{width:100%}}
