@@ -27,10 +27,10 @@ test('workflow publica instalar.html', () => {
 test('instalador força atualização dos arquivos críticos e do service worker', () => {
   const html = readFileSync(new URL('../instalar.html', import.meta.url), 'utf8');
   const js = readFileSync(new URL('../src/install.js', import.meta.url), 'utf8');
-  assert.match(html, /manifest\.webmanifest\?v=097/);
-  assert.match(html, /styles\.css\?v=097/);
-  assert.match(html, /src\/install\.js\?v=097/);
+  assert.match(html, /manifest\.webmanifest\?v=0100/);
+  assert.match(html, /styles\.css\?v=0100/);
+  assert.match(html, /src\/install\.js\?v=0100/);
   assert.match(js, /updateViaCache:\s*['"]none['"]/);
   assert.match(js, /registration\.update\(\)/);
-  assert.match(js, /\.\/\?v=097/);
+  assert.match(js, /\.\/\?v=0100/);
 });

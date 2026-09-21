@@ -7,10 +7,10 @@
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'; worker-src 'self'">
   <meta name="description" content="Conta Certa — gestão financeira compartilhada para pequenos condomínios.">
-  <link rel="manifest" href="manifest.webmanifest?v=097">
+  <link rel="manifest" href="manifest.webmanifest?v=0100">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-  <link rel="stylesheet" href="styles.css?v=097">
+  <link rel="stylesheet" href="styles.css?v=0100">
   <title>Conta Certa</title>
 </head>
 <body class="app-locked">
@@ -47,6 +47,7 @@
     <button class="nav-button" data-view="projections">Projeções</button>
     <button class="nav-button" data-view="cashbook">Caixa & backup</button>
     <button class="nav-button" data-view="obligations">Obrigações</button>
+    <button class="nav-button" data-view="residents">Moradores</button>
     <button class="nav-button" data-view="compliance">Adimplência</button>
   </nav>
 
@@ -286,6 +287,25 @@
       <section class="notice warning-notice"><strong>Regra crítica:</strong> parcelamento aberto, mensalidade pendente ou qualquer outra obrigação exigível impede a declaração de adimplência. Não existe botão para “forçar” uma unidade como adimplente.</section>
     </section>
 
+    <section class="view" id="view-residents">
+      <section class="card intro">
+        <span class="eyebrow">Consulta somente leitura</span>
+        <h2>Acesso do morador</h2>
+        <p>Gere um pacote criptografado específico para cada unidade. O pacote não contém dados individuais das outras unidades.</p>
+      </section>
+      <section class="card">
+        <div class="section-title compact"><div><span class="eyebrow">Primeira ativação</span><h2>Gerar pacote da unidade</h2></div></div>
+        <div class="form-grid">
+          <label>Unidade<select id="resident-access-unit"></select></label>
+        </div>
+        <div class="actions"><button id="generate-resident-access" type="button">Gerar arquivo do morador</button></div>
+        <p>O download será um arquivo <code>.ccresident.json</code> criptografado. A chave abaixo aparece somente nesta sessão e deve ser enviada diretamente ao morador.</p>
+        <div class="resident-token-box"><strong>Chave de ativação</strong><code id="resident-access-token">—</code><button id="copy-resident-token" class="secondary" type="button">Copiar chave</button></div>
+        <p id="resident-access-feedback" class="feedback" role="status"></p>
+      </section>
+      <section class="notice warning-notice"><strong>Importante:</strong> a área do morador é offline-first e não sincroniza automaticamente. Quando houver novos fechamentos ou pagamentos, gere e envie um novo pacote da unidade. O morador atualiza os dados mantendo o mesmo telefone e PIN.</section>
+    </section>
+
     <section class="view" id="view-compliance">
       <section class="card intro">
         <span class="eyebrow">Controle rigoroso</span>
@@ -325,7 +345,7 @@
     </section>
   </main>
 
-  <footer>Conta Certa • v0.9.7 — atualização resiliente e distribuição controlada</footer>
-  <script type="module" src="src/app.js?v=097"></script>
+  <footer>Conta Certa • v0.10.0 — perfil do morador e pagamento com data informada</footer>
+  <script type="module" src="src/app.js?v=0100"></script>
 </body>
 </html>

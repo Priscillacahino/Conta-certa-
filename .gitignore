@@ -5,3 +5,6 @@ private/
 # Arquivos locais
 .DS_Store
 Thumbs.db
+
+# Pacotes individuais do morador: nunca publicar
+*.ccresident.json

@@ -12,7 +12,7 @@ A proposta é reunir em uma ferramenta simples o que pequenos residenciais norma
 
 ### Usuário não administrador
 
-Na versão atual, **ainda não existe um perfil de morador separado dentro do aplicativo**. A interface financeira é protegida pela credencial administrativa local. O usuário não administrador pode receber documentos e prestações de contas compartilhados pelo responsável; o modo interno de consulta com permissões próprias é uma evolução planejada.
+A partir da v0.10.0 existe uma **área do morador separada e somente leitura**. A primeira ativação usa um pacote criptografado individual da unidade e uma chave de ativação gerados pelo administrador. Depois de ativado, o login cotidiano é feito com o telefone cadastrado e um PIN numérico de 4 dígitos. A versão offline não sincroniza automaticamente entre aparelhos: o administrador envia um novo pacote quando houver atualização dos dados.
 
 ### Administrador
 
@@ -118,6 +118,8 @@ A área de projeções também passa a considerar compromissos já assumidos, ma
 
 Veja [`docs/BACKUP_RESTAURACAO.md`](docs/BACKUP_RESTAURACAO.md), [`docs/FECHAMENTO_MENSAL.md`](docs/FECHAMENTO_MENSAL.md), [`docs/PRESTACAO_CONTAS.md`](docs/PRESTACAO_CONTAS.md) e [`docs/PROJECOES.md`](docs/PROJECOES.md).
 
+Veja também: [`docs/MORADOR.md`](docs/MORADOR.md).
+
 ## Arquitetura do MVP
 
 - PWA em HTML, CSS e JavaScript;
@@ -175,7 +177,7 @@ A emissão anual será autorizada somente pelo **livro de obrigações do Conta 
 
 ## Status
 
-🚧 **Em desenvolvimento — v0.9.7 (atualização resiliente, despesas discriminadas e distribuição controlada).**
+🚧 **Em desenvolvimento — v0.10.0 (perfil do morador, acesso somente leitura e pagamento com data informada).**
 
 A planilha histórica real será utilizada para validação e migração dos dados, sem expor nomes de moradores, telefones ou endereço completo nos dados públicos de demonstração.
 

@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0b3158">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'; worker-src 'self'">
+  <meta name="description" content="Área do morador do Conta Certa.">
+  <link rel="manifest" href="manifest-morador.webmanifest?v=0100">
+  <link rel="icon" href="icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="styles.css?v=0100">
+  <link rel="stylesheet" href="resident.css?v=0100">
+  <title>Conta Certa — Morador</title>
+</head>
+<body class="resident-body resident-locked">
+  <section id="resident-gate" class="resident-gate" aria-live="polite">
+    <div class="resident-auth-card">
+      <img src="icons/icon-192.png" alt="Ícone Conta Certa" class="resident-auth-icon">
+      <span class="eyebrow">Área do morador</span>
+      <h1>Conta Certa</h1>
+
+      <section id="resident-login-panel" hidden>
+        <h2>Entrar</h2>
+        <p>Use o telefone cadastrado no residencial e sua senha numérica de 4 dígitos.</p>
+        <form id="resident-login-form" class="resident-form">
+          <label>Telefone cadastrado
+            <input id="resident-login-phone" type="tel" inputmode="tel" autocomplete="tel" required placeholder="(83) 99999-9999">
+          </label>
+          <label>Senha de 4 dígitos
+            <input id="resident-login-pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="current-password" required placeholder="••••">
+          </label>
+          <button type="submit">Entrar</button>
+        </form>
+        <p id="resident-login-feedback" class="feedback" role="status"></p>
+      </section>
+
+      <section id="resident-activation-panel" hidden>
+        <h2>Ativar acesso neste aparelho</h2>
+        <p>Na primeira utilização, selecione o arquivo de acesso enviado pelo administrador e informe a chave de ativação. Depois disso, seu acesso diário será feito somente com telefone + senha de 4 dígitos.</p>
+        <form id="resident-activation-form" class="resident-form">
+          <label>Arquivo de acesso
+            <input id="resident-package-file" type="file" accept="application/json,.json,.ccresident.json" required>
+          </label>
+          <label>Chave de ativação
+            <input id="resident-activation-token" type="text" autocomplete="off" spellcheck="false" required placeholder="CCA1-...">
+          </label>
+          <label>Telefone cadastrado
+            <input id="resident-activation-phone" type="tel" inputmode="tel" autocomplete="tel" required placeholder="(83) 99999-9999">
+          </label>
+          <label>Crie sua senha de 4 dígitos
+            <input id="resident-new-pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="new-password" required placeholder="••••">
+          </label>
+          <label>Confirme a senha
+            <input id="resident-confirm-pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="new-password" required placeholder="••••">
+          </label>
+          <button type="submit">Ativar e entrar</button>
+        </form>
+        <p id="resident-activation-feedback" class="feedback" role="status"></p>
+      </section>
+
+      <small class="resident-security-note">A senha de 4 dígitos protege o acesso cotidiano neste aparelho. O arquivo de ativação é criptografado e deve ser recebido diretamente do administrador.</small>
+    </div>
+  </section>
+
+  <header class="resident-header">
+    <div class="resident-brand">
+      <img src="icons/icon-192.png" alt="Conta Certa">
+      <div><span class="eyebrow">Área do morador</span><h1>Conta Certa</h1><p id="resident-header-unit">Consulta financeira</p></div>
+    </div>
+    <button id="resident-lock" type="button" class="secondary">Bloquear</button>
+  </header>
+
+  <nav class="resident-nav" aria-label="Áreas do morador">
+    <button class="resident-nav-button active" data-view="home">Início</button>
+    <button class="resident-nav-button" data-view="contributions">Minhas contribuições</button>
+    <button class="resident-nav-button" data-view="statements">Prestação de contas</button>
+    <button class="resident-nav-button" data-view="documents">Documentos</button>
+    <button class="resident-nav-button" data-view="settings">Atualizar</button>
+  </nav>
+
+  <main class="resident-main">
+    <section class="resident-view active" id="resident-view-home">
+      <section class="card intro">
+        <span class="eyebrow">Seu acesso</span>
+        <h2 id="resident-welcome">Bem-vindo</h2>
+        <p id="resident-residential-name">—</p>
+        <small id="resident-updated-at">—</small>
+      </section>
+      <section class="kpi-grid">
+        <article class="kpi"><span>Saldo do residencial</span><strong id="resident-latest-balance">—</strong><small id="resident-latest-period">—</small></article>
+        <article class="kpi"><span>Minha pendência</span><strong id="resident-outstanding">—</strong><small>obrigações em aberto</small></article>
+        <article class="kpi"><span>Minha situação</span><strong id="resident-status">—</strong><small>com base no pacote recebido</small></article>
+      </section>
+      <section class="card resident-readonly-note"><strong>Consulta somente leitura.</strong> Nenhuma informação financeira pode ser alterada pela área do morador.</section>
+    </section>
+
+    <section class="resident-view" id="resident-view-contributions">
+      <section class="card intro"><span class="eyebrow">Minha unidade</span><h2>Contribuições e pagamentos</h2><p>Mensalidades, taxas e parcelamentos vinculados à sua unidade.</p></section>
+      <section class="card"><div id="resident-obligations"><p class="muted">Nenhum dado carregado.</p></div></section>
+    </section>
+
+    <section class="resident-view" id="resident-view-statements">
+      <section class="card intro"><span class="eyebrow">Transparência</span><h2>Prestação de contas</h2><p>Consulte as competências fechadas e veja cada despesa discriminada.</p></section>
+      <section class="card">
+        <label>Competência<select id="resident-closing-select"></select></label>
+        <div class="resident-closing-summary">
+          <div><span>Saldo inicial</span><strong id="resident-opening">—</strong></div>
+          <div><span>Receitas</span><strong id="resident-revenue">—</strong></div>
+          <div><span>Despesas</span><strong id="resident-expense">—</strong></div>
+          <div><span>Resultado</span><strong id="resident-result">—</strong></div>
+          <div><span>Saldo final</span><strong id="resident-closing-balance">—</strong></div>
+        </div>
+        <h3>Despesas do mês</h3>
+        <div id="resident-expenses"><p class="muted">Selecione uma competência.</p></div>
+      </section>
+    </section>
+
+    <section class="resident-view" id="resident-view-documents">
+      <section class="card intro"><span class="eyebrow">Documentos</span><h2>Declarações</h2><p>Documentos disponibilizados para a sua unidade.</p></section>
+      <section class="card"><div id="resident-documents"><p class="muted">Nenhum documento disponível.</p></div></section>
+    </section>
+
+    <section class="resident-view" id="resident-view-settings">
+      <section class="card intro"><span class="eyebrow">Atualização controlada</span><h2>Atualizar dados</h2><p>Quando o administrador enviar um novo arquivo de acesso, você pode atualizar os dados mantendo o mesmo telefone e PIN.</p></section>
+      <section class="card">
+        <form id="resident-update-form" class="resident-form">
+          <label>Novo arquivo de acesso<input id="resident-update-file" type="file" accept="application/json,.json,.ccresident.json" required></label>
+          <label>Nova chave de ativação<input id="resident-update-token" type="text" autocomplete="off" required placeholder="CCA1-..."></label>
+          <label>Seu telefone<input id="resident-update-phone" type="tel" inputmode="tel" autocomplete="tel" required></label>
+          <label>Sua senha de 4 dígitos<input id="resident-update-pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="current-password" required></label>
+          <button type="submit">Atualizar dados</button>
+        </form>
+        <p id="resident-update-feedback" class="feedback" role="status"></p>
+      </section>
+      <section class="card resident-danger-zone">
+        <h3>Remover acesso deste aparelho</h3>
+        <p>Apaga somente os dados locais da área do morador neste aparelho.</p>
+        <button id="resident-clear-access" type="button" class="danger-button">Remover acesso local</button>
+      </section>
+    </section>
+  </main>
+
+  <script type="module" src="src/resident.js?v=0100"></script>
+</body>
+</html>

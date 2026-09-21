@@ -71,6 +71,18 @@ export function cancelObligation(obligation, reason, cancelledAt = new Date().to
   });
 }
 
+export function paymentTimestampFromDate(value) {
+  const text = String(value ?? '').trim();
+  const match = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) throw new Error('DATA_PAGAMENTO_INVALIDA');
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() + 1 !== month || date.getUTCDate() !== day) throw new Error('DATA_PAGAMENTO_INVALIDA');
+  return `${text}T12:00:00`;
+}
+
 export function splitAmount(totalCents, parts) {
   asInt(totalCents, 'Total');
   asInt(parts, 'Parcelas');

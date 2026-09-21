@@ -18,13 +18,15 @@ import { buildMonthlyStatementPdf } from './statement-pdf.js';
 import { escapeHtml } from './sanitize.js';
 import {
   normalizeObligation, ledgerSummary, createMonthlyObligations,
-  applyPayment, outstandingCents, cancelObligation,
+  applyPayment, outstandingCents, cancelObligation, paymentTimestampFromDate,
 } from './obligations.js';
+import { buildResidentPayload, createActivationToken, encryptResidentPayload } from './resident-access.js';
 
 const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const money = cents => brl.format((cents ?? 0) / 100);
 const toCents = value => Math.round((Number(String(value).replace(',', '.')) || 0) * 100);
 const currentCompetenceKey = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+const localDateValue = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 const $ = selector => document.querySelector(selector);
 let importedPeriods = [];
 let importedUnits = [];
@@ -195,7 +197,7 @@ async function createEncryptedBackup() {
   const confirmation = $('#backup-confirm').value;
   if (passphrase !== confirmation) { $('#backup-feedback').textContent = 'As senhas do backup não conferem.'; return; }
   try {
-    const snapshot = await exportDatabaseSnapshot('0.9.6');
+    const snapshot = await exportDatabaseSnapshot('0.10.0');
     const envelope = await encryptSnapshot(snapshot, passphrase);
     const stamp = new Date().toISOString().slice(0,10);
     downloadJson(envelope, `Conta_Certa_backup_${stamp}.ccbackup.json`);
@@ -580,6 +582,8 @@ function renderHistory(periods) {
 function fillUnitSelectors() {
   const options = importedUnits.map(u => `<option value="${escapeHtml(u.id)}">${escapeHtml(u.label ?? `Apartamento ${u.id}`)}</option>`).join('');
   $('#obligation-unit').innerHTML = options || '<option value="">Importe/cadastre as unidades</option>';
+  const residentSelect = $('#resident-access-unit');
+  if (residentSelect) residentSelect.innerHTML = options || '<option value="">Importe/cadastre as unidades</option>';
 }
 
 const kindLabel = kind => ({
@@ -665,22 +669,25 @@ async function payObligation(id) {
   const openCents = outstandingCents(obligation);
   const answer = window.prompt(`Saldo pendente: ${money(openCents)}\nInforme o valor recebido (R$):`, (openCents / 100).toFixed(2));
   if (answer == null) return;
+  const receivedDate = window.prompt('Informe a data em que o pagamento foi recebido (AAAA-MM-DD):', '');
+  if (receivedDate == null) return;
   const paymentCents = toCents(answer);
   try {
-    const updated = applyPayment(obligation, paymentCents);
+    const paidAt = paymentTimestampFromDate(receivedDate);
+    const updated = applyPayment(obligation, paymentCents, paidAt);
     await registerObligationPayment({
       obligation: updated,
-      payment: { id: crypto.randomUUID(), obligationId: id, unitId: obligation.unitId, amountCents: paymentCents, paidAt: new Date().toISOString() },
+      payment: { id: crypto.randomUUID(), obligationId: id, unitId: obligation.unitId, amountCents: paymentCents, paidAt },
     });
-    $('#obligation-feedback').textContent = updated.status === 'paid' ? 'Obrigação quitada.' : 'Pagamento parcial registrado.';
+    $('#obligation-feedback').textContent = updated.status === 'paid' ? 'Obrigação quitada na data informada.' : 'Pagamento parcial registrado na data informada.';
     await refreshLedger();
     await refreshCashbook();
   } catch (error) {
-    $('#obligation-feedback').textContent = `Pagamento não registrado: ${error.message}`;
+    $('#obligation-feedback').textContent = error.message === 'DATA_PAGAMENTO_INVALIDA'
+      ? 'Pagamento não registrado: informe uma data válida no formato AAAA-MM-DD.'
+      : `Pagamento não registrado: ${error.message}`;
   }
 }
-
-
 
 async function cancelObligationUi(id) {
   const obligation = ledger.find(o => o.id === id);
@@ -701,6 +708,47 @@ async function cancelObligationUi(id) {
         : error.message === 'MOTIVO_CANCELAMENTO_OBRIGATORIO'
           ? 'Informe um motivo com pelo menos 5 caracteres.'
           : \`Cancelamento não realizado: \${error.message}\`;
+  }
+}
+
+async function generateResidentAccessPackage() {
+  const unitId = $('#resident-access-unit').value;
+  const unit = importedUnits.find(item => String(item.id) === String(unitId));
+  if (!unit || !residentialData) {
+    $('#resident-access-feedback').textContent = 'Importe o cadastro privado e selecione uma unidade.';
+    return;
+  }
+  try {
+    const payload = buildResidentPayload({
+      residential: residentialData,
+      unit,
+      closings: monthClosings,
+      movements,
+      obligations: ledger,
+      payments,
+      certificates,
+    });
+    const activationToken = createActivationToken();
+    const envelope = await encryptResidentPayload(payload, activationToken);
+    const safeUnit = String(unit.label ?? unit.id).replace(/[^A-Za-z0-9_-]+/g, '_');
+    downloadJson(envelope, `Conta_Certa_Morador_${safeUnit}_${localDateValue()}.ccresident.json`);
+    $('#resident-access-token').textContent = activationToken;
+    $('#resident-access-feedback').textContent = 'Arquivo criptografado gerado. Envie o arquivo e a chave de ativação diretamente ao morador. O acesso diário será feito com telefone cadastrado + PIN de 4 dígitos.';
+  } catch (error) {
+    $('#resident-access-feedback').textContent = error.message === 'UNIDADE_SEM_TELEFONE_AUTORIZADO'
+      ? 'Esta unidade não possui telefone ativo no cadastro privado.'
+      : `Pacote do morador não gerado: ${error.message}`;
+  }
+}
+
+async function copyResidentActivationToken() {
+  const token = $('#resident-access-token').textContent.trim();
+  if (!token || token === '—') return;
+  try {
+    await navigator.clipboard.writeText(token);
+    $('#resident-access-feedback').textContent = 'Chave de ativação copiada. Quando possível, envie a chave separadamente do arquivo.';
+  } catch {
+    $('#resident-access-feedback').textContent = 'Não foi possível copiar automaticamente. Selecione e copie a chave exibida.';
   }
 }
 
@@ -985,6 +1033,8 @@ async function init() {
   $('#download-statement').addEventListener('click', downloadMonthlyStatement);
   $('#save-obligation').addEventListener('click', addObligation);
   $('#generate-monthly').addEventListener('click', generateMonthlyBatch);
+  $('#generate-resident-access').addEventListener('click', generateResidentAccessPackage);
+  $('#copy-resident-token').addEventListener('click', copyResidentActivationToken);
   $('#compliance-year').addEventListener('change', async () => { renderLedgerCompliance(); await syncClosingDate(); });
   $('#save-closing-date').addEventListener('click', saveClosingDate);
   $('#issue-eligible').addEventListener('click', issueEligibleBatch);

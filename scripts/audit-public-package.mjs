@@ -20,6 +20,7 @@ function walk(dir) {
       walk(full);
     } else {
       check(!entry.name.endsWith('.private.json'), `sem arquivo .private.json publicado: ${rel}`);
+      check(!entry.name.endsWith('.ccresident.json'), `sem pacote de morador publicado: ${rel}`);
       if (!binaryExtensions.has(path.extname(entry.name).toLowerCase())) textFiles.push({ rel, content:fs.readFileSync(full,'utf8') });
     }
   }

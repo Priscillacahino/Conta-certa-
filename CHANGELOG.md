@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.10.0 — perfil do morador e data manual do pagamento
+
+- pagamento passa a usar a data de recebimento informada pelo administrador;
+- área do morador separada, somente leitura;
+- primeira ativação com pacote criptografado e chave aleatória;
+- login cotidiano com telefone cadastrado + PIN numérico de 4 dígitos;
+- morador consulta suas obrigações/pagamentos, fechamentos, despesas discriminadas e declarações próprias;
+- dados de outras unidades não entram no pacote individual;
+- atualização offline por novo pacote enviado pelo administrador;
+- instalador e manifesto próprios para a área do morador.
+
 ## 0.9.7 — instalação resiliente e distribuição controlada
 
 - força atualização do Service Worker sem depender do cache HTTP;

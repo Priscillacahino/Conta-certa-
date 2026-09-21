@@ -83,7 +83,7 @@ installButton.addEventListener('click', async () => {
 });
 
 openApp.addEventListener('click', () => {
-  window.location.href = './?v=097';
+  window.location.href = './?v=0100';
 });
 
 setTimeout(() => {
