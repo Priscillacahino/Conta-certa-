@@ -20,7 +20,9 @@ function showInstalled() {
 }
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js').catch(() => {});
+  navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
+    .then(registration => registration.update())
+    .catch(() => {});
 }
 
 if (isStandalone) {
@@ -81,7 +83,7 @@ installButton.addEventListener('click', async () => {
 });
 
 openApp.addEventListener('click', () => {
-  window.location.href = './';
+  window.location.href = './?v=097';
 });
 
 setTimeout(() => {

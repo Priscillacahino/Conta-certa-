@@ -992,7 +992,11 @@ async function init() {
   await refreshCashbook();
   await syncClosingDate();
   await maybeAutoIssueCurrentYear();
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
+      .then(registration => registration.update())
+      .catch(() => {});
+  }
 }
 
 init();

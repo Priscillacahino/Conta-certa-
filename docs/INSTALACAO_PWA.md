@@ -21,7 +21,7 @@ Dados privados não são incluídos.
 
 Após a primeira publicação, a URL padrão tende a ser:
 
-`https://priscillacahino.github.io/Conta-certa-/`
+`link fornecido diretamente pelo responsável do residencial`
 
 ## Instalação no celular
 
@@ -42,3 +42,8 @@ Após a primeira publicação, a URL padrão tende a ser:
 Depois que a PWA é carregada, o Service Worker mantém os recursos essenciais em cache. Os dados financeiros permanecem no IndexedDB local do navegador/aparelho.
 
 A primeira abertura precisa de conexão para baixar a aplicação publicada. Depois disso, o núcleo foi projetado para continuar operando offline.
+
+
+## Distribuição controlada
+
+O endereço de instalação e o QR Code não são publicados na documentação pública. Eles são compartilhados diretamente pelo responsável do residencial com usuários autorizados. Isso reduz a descoberta casual, mas não substitui autenticação real: o GitHub Pages continua sendo um site público.

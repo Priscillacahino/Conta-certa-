@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.7 — instalação resiliente e distribuição controlada
+
+- força atualização do Service Worker sem depender do cache HTTP;
+- usa parâmetro de versão nos arquivos críticos da página de instalação e do aplicativo;
+- abre o aplicativo com versão de navegação atualizada;
+- retira QR Codes e documentos com endereço de instalação do repositório público;
+- mantém o link e o QR Code para distribuição privada pelo responsável do residencial;
+- adiciona teste para impedir a republicação acidental do endereço/QR na documentação pública.
+
 ## 0.9.2
 - revisão direta da planilha histórica concluiu maio/2023 e agosto/2023 sem criação de lançamentos fictícios;
 - maio/2023 classificado como `SOURCE_OPENING_RESET`;

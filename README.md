@@ -1,8 +1,5 @@
 # Conta Certa
 
-<p align="center">
-  <img src="assets/logo-conta-certa.png" alt="Logotipo do Conta Certa" width="420">
-</p>
 **Gestão compartilhada, contas transparentes.**
 
 O **Conta Certa** é uma PWA mobile-first e offline-first criada especialmente para **residenciais e condomínios pequenos**. O projeto foi pensado para facilitar o controle financeiro desses locais sem criar, quando a realidade e a complexidade da operação não justificarem, a necessidade de contratar uma empresa de administração de condomínio e assumir mais um gasto fixo.
@@ -176,30 +173,9 @@ O histórico importado é tratado como **referência financeira**, e não como p
 
 A emissão anual será autorizada somente pelo **livro de obrigações do Conta Certa**, no qual cada mensalidade, taxa extra ou parcelamento terá situação própria. Qualquer obrigação pendente bloqueia a declaração.
 
-## Distribuição controlada
-
-O aplicativo é distribuído diretamente pelo responsável do residencial aos usuários autorizados. As informações de instalação, incluindo link ou QR Code, não são divulgadas neste README público.
-
-A instalação continua sendo feita como PWA pelo navegador, sem necessidade de loja de aplicativos.
-
-## Instalação como PWA
-
-O Conta Certa possui publicação automatizada por **GitHub Pages**. Cada atualização na branch `main` executa primeiro os testes e a auditoria de privacidade e, somente se tudo passar, publica a PWA em HTTPS.
-
-No celular, abra a URL publicada e use **Instalar app** / **Adicionar à tela inicial**. O núcleo continua offline-first após o primeiro carregamento.
-
-Veja: [`docs/INSTALACAO_PWA.md`](docs/INSTALACAO_PWA.md).
-
-## Perfil de administrador
-
-Na primeira abertura em um navegador ou aparelho sem credencial configurada, o Conta Certa solicita a criação do **PIN/senha administrativo local**. A credencial não é enviada ao GitHub nem a um servidor e não é armazenada em texto puro; o aplicativo usa PBKDF2/SHA-256 com salt aleatório para validação.
-
-No MVP atual existe **um perfil administrativo por instalação/navegador**. A sessão expira automaticamente por inatividade e pode ser bloqueada manualmente.
-
-Veja: [`docs/ADMINISTRADOR.md`](docs/ADMINISTRADOR.md).
 ## Status
 
-🚧 **Em desenvolvimento — v0.9.6 (despesas discriminadas, cancelamento auditável e fechamentos históricos).**
+🚧 **Em desenvolvimento — v0.9.7 (atualização resiliente, despesas discriminadas e distribuição controlada).**
 
 A planilha histórica real será utilizada para validação e migração dos dados, sem expor nomes de moradores, telefones ou endereço completo nos dados públicos de demonstração.
 
@@ -218,6 +194,3 @@ npm run verify
 ```
 
 O comando executa toda a suíte de testes e, em seguida, verifica regras de publicação segura, exclusão de arquivos privados, CSP, política de referência, cache do Service Worker e padrões comuns de credenciais acidentalmente publicadas. Limitações e riscos residuais estão documentados em [`docs/AUDITORIA_SEGURANCA_PRIVACIDADE.md`](docs/AUDITORIA_SEGURANCA_PRIVACIDADE.md).
-
-
-
