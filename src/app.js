@@ -5,7 +5,7 @@ import {
   saveObligation, saveObligations, listObligations, registerObligationPayment,
   listCertificates, saveIssuedCertificate, revokeStoredCertificate, replacePrivateProfile,
   listPayments, listTransactions, saveTransaction, listMonthClosings, saveMonthClosing, reopenMonthClosing,
-  exportDatabaseSnapshot, restoreDatabaseSnapshot,
+  exportDatabaseSnapshot, restoreDatabaseSnapshot, syncHistoricalClosings,
 } from './db.js';
 import { validateImportBundle, summarizeImport, summarizeByYear } from './migration.js';
 import { evaluateAnnualCompliance, lastWeekdayOfYear } from './compliance.js';
@@ -13,17 +13,18 @@ import { issueCertificateArtifact, verifyCertificateRecord, base64ToBytes } from
 import { createSecurityCredential, verifySecurityCredential, nextSessionDeadline, unlockThrottleStatus, recordUnlockFailure, resetUnlockThrottle, SECURITY_DEFAULTS } from './security.js';
 import { normalizePrivateProfile, privateProfileSummary } from './private-profile.js';
 import { encryptSnapshot, decryptSnapshot } from './backup.js';
-import { normalizeMovement, summarizeCompetence, createClosingRecord, reopenClosingRecord, previousCompetence } from './closing.js';
+import { normalizeMovement, summarizeCompetence, createClosingRecord, reopenClosingRecord, previousCompetence, requiredExpenseStatus } from './closing.js';
 import { buildMonthlyStatementPdf } from './statement-pdf.js';
 import { escapeHtml } from './sanitize.js';
 import {
   normalizeObligation, ledgerSummary, createMonthlyObligations,
-  applyPayment, outstandingCents,
+  applyPayment, outstandingCents, cancelObligation,
 } from './obligations.js';
 
 const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const money = cents => brl.format((cents ?? 0) / 100);
 const toCents = value => Math.round((Number(String(value).replace(',', '.')) || 0) * 100);
+const currentCompetenceKey = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 const $ = selector => document.querySelector(selector);
 let importedPeriods = [];
 let importedUnits = [];
@@ -194,7 +195,7 @@ async function createEncryptedBackup() {
   const confirmation = $('#backup-confirm').value;
   if (passphrase !== confirmation) { $('#backup-feedback').textContent = 'As senhas do backup não conferem.'; return; }
   try {
-    const snapshot = await exportDatabaseSnapshot('0.9.3');
+    const snapshot = await exportDatabaseSnapshot('0.9.6');
     const envelope = await encryptSnapshot(snapshot, passphrase);
     const stamp = new Date().toISOString().slice(0,10);
     downloadJson(envelope, `Conta_Certa_backup_${stamp}.ccbackup.json`);
@@ -236,29 +237,162 @@ function movementRowsFor(competence) {
   const pay = payments.filter(p => String(p.paidAt ?? '').startsWith(competence)).map(p => ({
     kind: 'income', date: p.paidAt, description: p.description || `Pagamento - unidade ${p.unitId}`, amountCents: p.amountCents, source: 'Pagamento'
   }));
-  const manual = movements.filter(m => m.competence === competence).map(m => ({...m, source: m.kind === 'income' ? 'Receita manual' : 'Despesa'}));
+  const manual = movements.filter(m => m.competence === competence).map(m => ({...m, category: m.category, source: m.kind === 'income' ? 'Receita manual' : 'Despesa'}));
   return [...pay, ...manual].sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+}
+
+
+const expenseLabelForCompetence = competence => {
+  const [year, month] = String(competence).split('-').map(Number);
+  const names = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  return `${names[month - 1] ?? month}/${year}`;
+};
+
+function categoryKey(value) {
+  return String(value ?? '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').trim().toLowerCase();
+}
+
+function findRequiredExpense(competence, category) {
+  const wanted = categoryKey(category);
+  return movements.find(m => m.competence === competence && m.kind === 'expense' && (
+    categoryKey(m.category) === wanted ||
+    (wanted === 'energia' && categoryKey(m.category).includes('energisa'))
+  )) ?? null;
+}
+
+function renderRequiredExpenseForm({ disabled = false } = {}) {
+  const competence = $('#closing-competence').value;
+  if (!competence) return;
+  const configs = [
+    { category:'Água', amount:'#water-expense-amount', date:'#water-expense-date', status:'#water-expense-status', button:'#save-water-expense' },
+    { category:'Energia', amount:'#energy-expense-amount', date:'#energy-expense-date', status:'#energy-expense-status', button:'#save-energy-expense' },
+  ];
+
+  for (const cfg of configs) {
+    const item = findRequiredExpense(competence, cfg.category);
+    const amount = $(cfg.amount);
+    const date = $(cfg.date);
+    const status = $(cfg.status);
+    const button = $(cfg.button);
+    if (!amount || !date || !status || !button) continue;
+    amount.value = item ? (item.amountCents / 100).toFixed(2) : '';
+    date.value = item?.date?.slice(0,10) || `${competence}-01`;
+    status.textContent = item ? `Registrada • ${money(item.amountCents)}` : 'Pendente';
+    status.className = `status-badge ${item ? 'ok' : 'attention'}`;
+    amount.disabled = disabled;
+    date.disabled = disabled;
+    button.disabled = disabled;
+    button.textContent = item ? `Atualizar ${cfg.category}` : `Registrar ${cfg.category}`;
+  }
+
+  for (const id of ['#other-expense-date','#other-expense-description','#other-expense-amount','#add-other-expense']) {
+    const el = $(id);
+    if (el) el.disabled = disabled;
+  }
+  const otherDate = $('#other-expense-date');
+  if (otherDate && !otherDate.value) otherDate.value = `${competence}-01`;
+}
+
+async function saveRequiredExpense(category) {
+  const competence = $('#closing-competence').value;
+  const isWater = category === 'Água';
+  const date = $(isWater ? '#water-expense-date' : '#energy-expense-date').value;
+  const amountCents = toCents($(isWater ? '#water-expense-amount' : '#energy-expense-amount').value);
+  if (!competence || !date || amountCents <= 0) {
+    $('#closing-feedback').textContent = `Informe data e valor de ${category}.`;
+    return;
+  }
+  try {
+    const movement = normalizeMovement({
+      id: `required-expense-${categoryKey(category)}-${competence}`,
+      competence,
+      date,
+      kind: 'expense',
+      category,
+      description: `${category} — ${expenseLabelForCompetence(competence)}`,
+      amountCents,
+    });
+    await saveTransaction(movement);
+    $('#closing-feedback').textContent = `${category} registrada. Se corrigir o valor antes do fechamento, salve novamente para atualizar a mesma despesa.`;
+    await refreshCashbook();
+  } catch (error) {
+    $('#closing-feedback').textContent = `Despesa não registrada: ${error.message}`;
+  }
+}
+
+async function addOtherExpense() {
+  const competence = $('#closing-competence').value;
+  const date = $('#other-expense-date').value;
+  const description = $('#other-expense-description').value.trim();
+  const amountCents = toCents($('#other-expense-amount').value);
+  if (!competence || !date || !description || amountCents <= 0) {
+    $('#closing-feedback').textContent = 'Em Outras despesas, informe data, descrição e valor.';
+    return;
+  }
+  try {
+    const movement = normalizeMovement({
+      id: crypto.randomUUID(),
+      competence,
+      date,
+      kind: 'expense',
+      category: 'Outros',
+      description,
+      amountCents,
+    });
+    await saveTransaction(movement);
+    $('#other-expense-description').value = '';
+    $('#other-expense-amount').value = '';
+    $('#closing-feedback').textContent = 'Outra despesa adicionada. Você pode adicionar quantas forem necessárias nesta competência.';
+    await refreshCashbook();
+  } catch (error) {
+    $('#closing-feedback').textContent = `Despesa não registrada: ${error.message}`;
+  }
 }
 
 function renderClosingView() {
   const competence = $('#closing-competence').value;
   if (!competence) return;
   const existing = monthClosings.find(c => c.competence === competence) ?? null;
-  const prior = previousBalanceFor(competence);
+  const historical = existing?.status === 'closed' && existing?.source === 'historical_import';
   const openingInput = $('#closing-opening-balance');
+
+  if (historical) {
+    openingInput.value = (existing.openingBalanceCents / 100).toFixed(2);
+    openingInput.readOnly = true;
+    $('#opening-balance-source').textContent = 'Fechamento preservado da base histórica importada.';
+    $('#closing-opening').textContent = money(existing.openingBalanceCents);
+    $('#closing-revenue').textContent = money(existing.revenueCents);
+    $('#closing-expense').textContent = money(existing.expenseCents);
+    $('#closing-result').textContent = money(existing.resultCents);
+    $('#closing-balance').textContent = money(existing.closingBalanceCents);
+    const state = $('#closing-state');
+    state.textContent = 'Fechado (histórico)';
+    state.className = 'status-badge ok';
+    $('#close-month').disabled = true;
+    $('#reopen-month').disabled = true;
+    $('#download-statement').disabled = true;
+    $('#save-movement').disabled = true;
+    renderRequiredExpenseForm({ disabled: true });
+    $('#closing-movements').innerHTML = '<p class="muted">Competência encerrada no histórico importado. Consulte a aba Histórico para os detalhes da fonte original.</p>';
+    $('#closing-feedback').textContent = 'Competência histórica bloqueada para novos lançamentos. Correções devem ser feitas na fonte histórica e reimportadas.';
+    return;
+  }
+
+  const prior = previousBalanceFor(competence);
   if (prior.blocked) {
     openingInput.value = '';
     openingInput.readOnly = true;
-    $('#closing-feedback').textContent = `Não é possível fechar ${competence}: a competência anterior (${prior.competence}) está reaberta.`;
+    $('#closing-feedback').textContent = \`Não é possível fechar \${competence}: a competência anterior (\${prior.competence}) está reaberta.\`;
   } else if (prior.value != null) {
     openingInput.value = (prior.value / 100).toFixed(2);
     openingInput.readOnly = true;
-    $('#opening-balance-source').textContent = prior.source === 'closing' ? `Transportado do fechamento de ${prior.competence}` : `Transportado do histórico de ${prior.competence}`;
+    $('#opening-balance-source').textContent = prior.source === 'closing' ? \`Transportado do fechamento de \${prior.competence}\` : \`Transportado do histórico de \${prior.competence}\`;
   } else {
     if (!openingInput.value) openingInput.value = '0.00';
     openingInput.readOnly = false;
     $('#opening-balance-source').textContent = 'Sem competência anterior encontrada: informe o saldo inicial uma única vez.';
   }
+
   const summary = summarizeCompetence({competence, openingBalanceCents: toCents(openingInput.value), payments, movements});
   $('#closing-opening').textContent = money(summary.openingBalanceCents);
   $('#closing-revenue').textContent = money(summary.revenueCents);
@@ -266,14 +400,17 @@ function renderClosingView() {
   $('#closing-result').textContent = money(summary.resultCents);
   $('#closing-balance').textContent = money(summary.closingBalanceCents);
   const state = $('#closing-state');
-  state.textContent = existing?.status === 'closed' ? `Fechado - rev. ${existing.revision}` : existing?.status === 'reopened' ? `Reaberto - rev. ${existing.revision}` : 'Em aberto';
-  state.className = `status-badge ${existing?.status === 'closed' ? 'ok' : existing?.status === 'reopened' ? 'attention' : 'neutral'}`;
-  $('#close-month').disabled = Boolean(existing?.status === 'closed' || prior.blocked);
+  state.textContent = existing?.status === 'closed' ? \`Fechado - rev. \${existing.revision}\` : existing?.status === 'reopened' ? \`Reaberto - rev. \${existing.revision}\` : 'Em aberto';
+  state.className = \`status-badge \${existing?.status === 'closed' ? 'ok' : existing?.status === 'reopened' ? 'attention' : 'neutral'}\`;
+  const locked = existing?.status === 'closed';
+  $('#close-month').disabled = Boolean(locked || prior.blocked);
   $('#reopen-month').disabled = existing?.status !== 'closed';
   $('#download-statement').disabled = existing?.status !== 'closed';
-  $('#save-movement').disabled = existing?.status === 'closed';
+  $('#save-movement').disabled = locked;
+  renderRequiredExpenseForm({ disabled: locked });
+
   const rows = movementRowsFor(competence);
-  $('#closing-movements').innerHTML = rows.length ? rows.map(r => `<article class="cash-row"><div><strong>${escapeHtml(r.description)}</strong><small>${escapeHtml(String(r.date).slice(0,10))} • ${escapeHtml(r.source)}</small></div><span class="${r.kind === 'expense' ? 'negative' : 'positive'}">${r.kind === 'expense' ? '-' : '+'} ${money(r.amountCents)}</span></article>`).join('') : '<p class="muted">Nenhuma movimentação financeira nesta competência.</p>';
+  $('#closing-movements').innerHTML = rows.length ? rows.map(r => \`<article class="cash-row"><div><strong>\${escapeHtml(r.description)}</strong><small>\${escapeHtml(String(r.date).slice(0,10))} • \${escapeHtml(r.source)}\${r.category ? \` • \${escapeHtml(r.category)}\` : ''}</small></div><span class="\${r.kind === 'expense' ? 'negative' : 'positive'}">\${r.kind === 'expense' ? '-' : '+'} \${money(r.amountCents)}</span></article>\`).join('') : '<p class="muted">Nenhuma movimentação financeira nesta competência.</p>';
 }
 
 async function refreshCashbook() {
@@ -303,6 +440,11 @@ async function addCashMovement() {
 
 async function closeSelectedMonth() {
   const competence = $('#closing-competence').value;
+  const required = requiredExpenseStatus(movements, competence);
+  if (!required.complete) {
+    $('#closing-feedback').textContent = `Fechamento bloqueado. Despesas obrigatórias ausentes: ${required.missing.join(' e ')}.`;
+    return;
+  }
   const prior = previousBalanceFor(competence);
   if (prior.blocked) { renderClosingView(); return; }
   try {
@@ -457,12 +599,15 @@ function renderObligations() {
     const unit = unitsById.get(String(o.unitId));
     const pending = outstandingCents(o);
     const statusLabel = o.status === 'paid' ? 'Quitada' : o.status === 'partial' ? 'Parcial' : o.status === 'cancelled' ? 'Cancelada' : 'Em aberto';
-    return `<article class="obligation-row">
-      <div class="obligation-main"><strong>${escapeHtml(unit?.label ?? `Unidade ${o.unitId}`)} • ${escapeHtml(kindLabel(o.kind))}</strong><span>${escapeHtml(o.description ?? '')}</span><small>Vencimento: ${escapeHtml(o.dueDate ?? 'não informado')} • Total: ${money(o.amountCents)}${o.paidCents ? ` • Pago: ${money(o.paidCents)}` : ''}</small></div>
-      <div class="obligation-actions"><span class="status-badge ${o.status === 'paid' ? 'ok' : o.status === 'cancelled' ? 'neutral' : 'attention'}">${escapeHtml(statusLabel)}${pending ? ` • falta ${money(pending)}` : ''}</span>${o.status !== 'paid' && o.status !== 'cancelled' ? `<button type="button" class="small-button pay-obligation" data-id="${escapeHtml(o.id)}">Registrar pagamento</button>` : ''}</div>
-    </article>`;
+    const cancellation = o.status === 'cancelled' && o.cancellationReason ? \`<small>Cancelamento: \${escapeHtml(o.cancellationReason)}</small>\` : '';
+    const canCancel = o.status === 'open' && (o.paidCents ?? 0) === 0;
+    return \`<article class="obligation-row">
+      <div class="obligation-main"><strong>\${escapeHtml(unit?.label ?? \`Unidade \${o.unitId}\`)} • \${escapeHtml(kindLabel(o.kind))}</strong><span>\${escapeHtml(o.description ?? '')}</span><small>Vencimento: \${escapeHtml(o.dueDate ?? 'não informado')} • Total: \${money(o.amountCents)}\${o.paidCents ? \` • Pago: \${money(o.paidCents)}\` : ''}</small>\${cancellation}</div>
+      <div class="obligation-actions"><span class="status-badge \${o.status === 'paid' ? 'ok' : o.status === 'cancelled' ? 'neutral' : 'attention'}">\${escapeHtml(statusLabel)}\${pending ? \` • falta \${money(pending)}\` : ''}</span>\${o.status !== 'paid' && o.status !== 'cancelled' ? \`<button type="button" class="small-button pay-obligation" data-id="\${escapeHtml(o.id)}">Registrar pagamento</button>\` : ''}\${canCancel ? \`<button type="button" class="small-button danger-button cancel-obligation" data-id="\${escapeHtml(o.id)}">Cancelar obrigação</button>\` : ''}</div>
+    </article>\`;
   }).join('');
   document.querySelectorAll('.pay-obligation').forEach(button => button.addEventListener('click', () => payObligation(button.dataset.id)));
+  document.querySelectorAll('.cancel-obligation').forEach(button => button.addEventListener('click', () => cancelObligationUi(button.dataset.id)));
 }
 
 async function refreshLedger() {
@@ -535,6 +680,29 @@ async function payObligation(id) {
   }
 }
 
+
+
+async function cancelObligationUi(id) {
+  const obligation = ledger.find(o => o.id === id);
+  if (!obligation) return;
+  const reason = window.prompt('Informe o motivo do cancelamento. O registro continuará no histórico:', 'Lançamento de teste');
+  if (reason == null) return;
+  if (!window.confirm(\`Cancelar esta obrigação de \${money(obligation.amountCents)}? O registro ficará marcado como CANCELADO.\`)) return;
+  try {
+    const updated = cancelObligation(obligation, reason);
+    await saveObligation(updated);
+    $('#obligation-feedback').textContent = 'Obrigação cancelada. Ela deixou de compor as pendências e permaneceu registrada no histórico.';
+    await refreshLedger();
+  } catch (error) {
+    $('#obligation-feedback').textContent = error.message === 'OBRIGACAO_COM_PAGAMENTO_NAO_PODE_SER_CANCELADA'
+      ? 'Esta obrigação já possui pagamento. Para corrigi-la, será necessário um fluxo de estorno.'
+      : error.message === 'COMPETENCIA_FECHADA'
+        ? 'A competência desta obrigação está fechada e não pode ser alterada.'
+        : error.message === 'MOTIVO_CANCELAMENTO_OBRIGATORIO'
+          ? 'Informe um motivo com pelo menos 5 caracteres.'
+          : \`Cancelamento não realizado: \${error.message}\`;
+  }
+}
 
 function activeCertificate(unitId, year) {
   return certificates.find(c => String(c.unitId) === String(unitId) && Number(c.year) === Number(year) && c.status === 'VALID') ?? null;
@@ -725,6 +893,7 @@ async function refreshImportedData() {
     $('#private-profile-state').className = 'status-badge neutral';
   }
   importedPeriods = periods.sort((a,b)=>a.id.localeCompare(b.id));
+  await syncHistoricalClosings(importedPeriods, currentCompetenceKey());
   importedUnits = units.sort((a,b)=>String(a.id).localeCompare(String(b.id)));
   fillUnitSelectors();
   if (!meta) {
@@ -764,6 +933,7 @@ async function importSelectedFile() {
     }
     $('#import-feedback').textContent = `Importação concluída: ${summary.periodCount} competências, ${summary.classifiedCount} classificadas e ${summary.reviewCount} em revisão manual.${privateMeta ? ' O cadastro privado foi preservado.' : ''}`;
     await refreshImportedData();
+    await refreshCashbook();
   } catch (error) {
     $('#import-feedback').textContent = `Importação não realizada: ${error.message}`;
   }
@@ -781,6 +951,9 @@ function initializeDates() {
   $('#monthly-amount').value = '190.00';
   $('#closing-competence').value = competence;
   $('#movement-date').value = `${competence}-01`;
+  $('#water-expense-date').value = `${competence}-01`;
+  $('#energy-expense-date').value = `${competence}-01`;
+  $('#other-expense-date').value = `${competence}-01`;
 }
 
 async function init() {
@@ -801,9 +974,12 @@ async function init() {
   $('#private-profile-import').addEventListener('click', importPrivateProfileFile);
   $('#create-backup').addEventListener('click', createEncryptedBackup);
   $('#restore-backup').addEventListener('click', restoreEncryptedBackup);
-  $('#closing-competence').addEventListener('change', async () => { const c=$('#closing-competence').value; $('#movement-date').value=`${c}-01`; renderClosingView(); });
+  $('#closing-competence').addEventListener('change', async () => { const c=$('#closing-competence').value; $('#movement-date').value=`${c}-01`; $('#water-expense-date').value=`${c}-01`; $('#energy-expense-date').value=`${c}-01`; $('#other-expense-date').value=`${c}-01`; renderClosingView(); });
   $('#closing-opening-balance').addEventListener('input', renderClosingView);
   $('#save-movement').addEventListener('click', addCashMovement);
+  $('#save-water-expense').addEventListener('click', () => saveRequiredExpense('Água'));
+  $('#save-energy-expense').addEventListener('click', () => saveRequiredExpense('Energia'));
+  $('#add-other-expense').addEventListener('click', addOtherExpense);
   $('#close-month').addEventListener('click', closeSelectedMonth);
   $('#reopen-month').addEventListener('click', reopenSelectedMonth);
   $('#download-statement').addEventListener('click', downloadMonthlyStatement);

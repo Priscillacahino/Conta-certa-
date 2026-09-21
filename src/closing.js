@@ -77,6 +77,31 @@ export function summarizeCompetence({ competence, openingBalanceCents, payments 
   });
 }
 
+
+function expenseCategoryKey(value) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+}
+
+export function requiredExpenseStatus(movements = [], competence) {
+  const key = validateCompetence(competence);
+  const categories = new Set(
+    movements
+      .map(normalizeMovement)
+      .filter(m => m.competence === key && m.kind === 'expense')
+      .map(m => expenseCategoryKey(m.category))
+  );
+  const hasWater = [...categories].some(c => c === 'agua' || c.startsWith('agua '));
+  const hasEnergy = [...categories].some(c => c === 'energia' || c.includes('energisa') || c.startsWith('energia '));
+  const missing = [];
+  if (!hasWater) missing.push('Água');
+  if (!hasEnergy) missing.push('Energia');
+  return Object.freeze({ complete: missing.length === 0, missing, hasWater, hasEnergy });
+}
+
 export function createClosingRecord({ summary, closedAt = new Date().toISOString(), previousRecord = null }) {
   if (!summary?.competence) throw new Error('RESUMO_FECHAMENTO_INVALIDO');
   const revision = Math.max(1, Number(previousRecord?.revision ?? 0) + 1);
@@ -105,6 +130,47 @@ export function reopenClosingRecord(record, reason, reopenedAt = new Date().toIS
   const cleanReason = String(reason ?? '').trim();
   if (cleanReason.length < 5) throw new Error('MOTIVO_REABERTURA_OBRIGATORIO');
   return Object.freeze({ ...record, status: 'reopened', reopenedAt, reopenReason: cleanReason });
+}
+
+
+export function historicalClosingFromPeriod(period, importedAt = new Date().toISOString()) {
+  if (!period?.id || !period?.calculated) throw new Error('PERIODO_HISTORICO_INVALIDO');
+  const competence = validateCompetence(period.id);
+  const revenueCents = asInt(period.calculated.revenueCents, 'Receitas históricas');
+  const expenseCents = asInt(period.calculated.expenseCents, 'Despesas históricas');
+  const closingBalanceCents = asInt(period.calculated.closingBalanceCents, 'Saldo final histórico');
+  const monthlyMovementCents = Number.isSafeInteger(period.calculated.monthlyMovementCents)
+    ? period.calculated.monthlyMovementCents
+    : revenueCents - expenseCents;
+  const openingBalanceCents = Number.isSafeInteger(period.openingBalanceCents)
+    ? period.openingBalanceCents
+    : closingBalanceCents - monthlyMovementCents;
+  asInt(openingBalanceCents, 'Saldo inicial histórico');
+  const resultCents = closingBalanceCents - openingBalanceCents;
+  const historicalAdjustmentCents = closingBalanceCents - (openingBalanceCents + revenueCents - expenseCents);
+
+  return Object.freeze({
+    id: competence,
+    competence,
+    status: 'closed',
+    revision: 1,
+    source: 'historical_import',
+    sourceStatus: period.reconciliation?.status ?? 'review',
+    historicalImportedAt: importedAt,
+    closedAt: importedAt,
+    reopenedAt: null,
+    reopenReason: null,
+    openingBalanceCents,
+    revenueCents,
+    paymentIncomeCents: 0,
+    manualIncomeCents: 0,
+    expenseCents,
+    resultCents,
+    closingBalanceCents,
+    historicalAdjustmentCents,
+    paymentIds: [],
+    movementIds: [],
+  });
 }
 
 export function isCompetenceLocked(record) {

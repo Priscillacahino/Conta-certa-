@@ -55,6 +55,22 @@ export function applyPayment(obligation, paymentCents, paidAt = new Date().toISO
   });
 }
 
+
+export function cancelObligation(obligation, reason, cancelledAt = new Date().toISOString()) {
+  const current = normalizeObligation(obligation);
+  if (current.status === 'cancelled') throw new Error('OBRIGACAO_JA_CANCELADA');
+  if (current.paidCents > 0) throw new Error('OBRIGACAO_COM_PAGAMENTO_NAO_PODE_SER_CANCELADA');
+  const cleanReason = String(reason ?? '').trim();
+  if (cleanReason.length < 5) throw new Error('MOTIVO_CANCELAMENTO_OBRIGATORIO');
+  return normalizeObligation({
+    ...current,
+    status: 'cancelled',
+    cancelled: true,
+    cancelledAt,
+    cancellationReason: cleanReason,
+  });
+}
+
 export function splitAmount(totalCents, parts) {
   asInt(totalCents, 'Total');
   asInt(parts, 'Parcelas');

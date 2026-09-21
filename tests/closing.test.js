@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { summarizeCompetence, createClosingRecord, reopenClosingRecord, previousCompetence, isCompetenceLocked, normalizeMovement, validateCompetence } from '../src/closing.js';
+import { summarizeCompetence, createClosingRecord, reopenClosingRecord, previousCompetence, isCompetenceLocked, normalizeMovement, validateCompetence, historicalClosingFromPeriod } from '../src/closing.js';
 
 test('fechamento mensal calcula resultado e transporta saldo matematicamente', () => {
   const summary=summarizeCompetence({
@@ -42,4 +42,17 @@ test('competência e valores inválidos são recusados', () => {
 test('pagamentos fora da competência não entram no fechamento', () => {
   const s=summarizeCompetence({competence:'2026-09',openingBalanceCents:0,payments:[{id:'a',unitId:'101',amountCents:19000,paidAt:'2026-08-31T23:59:00Z'},{id:'b',unitId:'101',amountCents:19000,paidAt:'2026-09-01T00:01:00Z'}],movements:[]});
   assert.equal(s.paymentIncomeCents,19000);
+});
+
+test('período histórico importado vira fechamento preservado e fechado', () => {
+  const record = historicalClosingFromPeriod({
+    id:'2026-08',
+    openingBalanceCents:93223,
+    calculated:{revenueCents:95000,expenseCents:62351,monthlyMovementCents:32649,closingBalanceCents:125872},
+    reconciliation:{status:'ok'}
+  }, '2026-09-20T12:00:00Z');
+  assert.equal(record.status,'closed');
+  assert.equal(record.source,'historical_import');
+  assert.equal(record.openingBalanceCents,93223);
+  assert.equal(record.closingBalanceCents,125872);
 });

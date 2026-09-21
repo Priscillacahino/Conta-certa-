@@ -1,4 +1,4 @@
-﻿const CACHE = 'conta-certa-v0.9.4';
+const CACHE = 'conta-certa-v0.9.6';
 const ASSETS = [
   './','./index.html','./instalar.html','./styles.css','./manifest.webmanifest','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-maskable-512.png','./icons/apple-touch-icon.png','./assets/logo-conta-certa.png',
   './src/app.js','./src/install.js','./src/db.js','./src/finance.js','./src/projections.js','./src/compliance.js','./src/migration.js','./src/obligations.js','./src/certificates.js','./src/certificate-pdf.js','./src/brand-data.js','./src/qr.js','./src/security.js','./src/private-profile.js','./src/backup.js','./src/closing.js','./src/statement-pdf.js','./src/sanitize.js'

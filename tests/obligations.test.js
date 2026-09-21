@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   applyPayment,
+  cancelObligation,
   createInstallmentPlan,
   createMonthlyObligations,
   ledgerSummary,
@@ -50,4 +51,20 @@ test('resumo do livro separa quitado e pendente', () => {
   assert.equal(summary.paidCount, 1);
   assert.equal(summary.pendingCount, 1);
   assert.equal(summary.outstandingCents, 3000);
+});
+
+test('cancelamento de obrigação sem pagamento preserva registro e zera pendência', () => {
+  const base = { id:'teste-103', unitId:'103', kind:'monthly_contribution', amountCents:19000, paidCents:0, year:2026, month:9, dueDate:'2026-09-10' };
+  const cancelled = cancelObligation(base, 'Lançamento de teste', '2026-09-20T12:00:00Z');
+  assert.equal(cancelled.status, 'cancelled');
+  assert.equal(cancelled.cancellationReason, 'Lançamento de teste');
+  const summary = ledgerSummary([cancelled]);
+  assert.equal(summary.count, 0);
+  assert.equal(summary.pendingCount, 0);
+  assert.equal(summary.outstandingCents, 0);
+});
+
+test('obrigação com pagamento não pode ser simplesmente cancelada', () => {
+  const partial = { id:'o2', unitId:'103', kind:'monthly_contribution', amountCents:19000, paidCents:1000, year:2026, month:9, dueDate:'2026-09-10' };
+  assert.throws(()=>cancelObligation(partial,'Correção necessária'),/OBRIGACAO_COM_PAGAMENTO_NAO_PODE_SER_CANCELADA/);
 });

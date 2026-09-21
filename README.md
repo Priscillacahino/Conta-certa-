@@ -1,15 +1,25 @@
-﻿# Conta Certa
+# Conta Certa
 
 <p align="center">
   <img src="assets/logo-conta-certa.png" alt="Logotipo do Conta Certa" width="420">
 </p>
 **Gestão compartilhada, contas transparentes.**
 
-O **Conta Certa** é uma PWA mobile-first e offline-first para gestão financeira de pequenos condomínios e residenciais. O projeto nasceu de uma necessidade real: em um condomínio pequeno, com uma rotina financeira objetiva e gestão compartilhada, não foi identificada a necessidade de contratar uma empresa de grande porte apenas para administrar receitas, despesas, orçamentos e prestações de contas. A proposta do Conta Certa é oferecer o suporte necessário para essa realidade de forma simples, organizada, transparente e de baixo custo.
+O **Conta Certa** é uma PWA mobile-first e offline-first criada especialmente para **residenciais e condomínios pequenos**. O projeto foi pensado para facilitar o controle financeiro desses locais sem criar, quando a realidade e a complexidade da operação não justificarem, a necessidade de contratar uma empresa de administração de condomínio e assumir mais um gasto fixo.
 
-O sistema foi pensado para substituir controles manuais em planilhas sem perder a simplicidade que funciona bem em condomínios pequenos. Ele concentra contribuições mensais, pagamentos por unidade, receitas, despesas, saldo acumulado, taxas extraordinárias, prestação de contas, projeções de gastos, backup e adimplência anual.
+A proposta é reunir em uma ferramenta simples o que pequenos residenciais normalmente controlam em planilhas: receitas, despesas discriminadas, contribuições mensais, saldo, cobranças, projeções, prestação de contas, backup e adimplência. O Conta Certa não substitui apoio contábil, jurídico ou administrativo quando ele for necessário; ele organiza a rotina financeira cotidiana e melhora a transparência entre os moradores.
 
 > O projeto está em desenvolvimento e não substitui assessoria contábil, jurídica ou administrativa quando ela for necessária. O objetivo é apoiar a gestão financeira cotidiana e a transparência entre os moradores.
+
+## Perfis de uso
+
+### Usuário não administrador
+
+Na versão atual, **ainda não existe um perfil de morador separado dentro do aplicativo**. A interface financeira é protegida pela credencial administrativa local. O usuário não administrador pode receber documentos e prestações de contas compartilhados pelo responsável; o modo interno de consulta com permissões próprias é uma evolução planejada.
+
+### Administrador
+
+O administrador controla cadastro e importação de dados, receitas e despesas discriminadas, mensalidades e outras obrigações, pagamentos, projeções, fechamento mensal, prestação de contas, declarações de adimplência, backup/restauração e segurança local.
 
 ## Objetivos do projeto
 
@@ -166,38 +176,12 @@ O histórico importado é tratado como **referência financeira**, e não como p
 
 A emissão anual será autorizada somente pelo **livro de obrigações do Conta Certa**, no qual cada mensalidade, taxa extra ou parcelamento terá situação própria. Qualquer obrigação pendente bloqueia a declaração.
 
-## QR Code oficial de instalação
+## Distribuição controlada
 
-Para facilitar ainda mais o acesso pelo celular, o Conta Certa possui um QR Code oficial que leva diretamente para a página de instalação.
+O aplicativo é distribuído diretamente pelo responsável do residencial aos usuários autorizados. As informações de instalação, incluindo link ou QR Code, não são divulgadas neste README público.
 
-<p align="center">
-  <a href="https://priscillacahino.github.io/Conta-certa-/instalar.html">
-    <img src="assets/qrcode-instalacao-conta-certa.png" alt="QR Code para instalar o Conta Certa" width="280">
-  </a>
-</p>
+A instalação continua sendo feita como PWA pelo navegador, sem necessidade de loja de aplicativos.
 
-<p align="center">
-  <strong>Escaneie com a câmera do celular para instalar o Conta Certa.</strong>
-</p>
-
-Link direto: **https://priscillacahino.github.io/Conta-certa-/instalar.html**
-
-Também está disponível uma versão em formato de cartaz para compartilhamento e impressão:
-
-[`assets/qrcode-instalacao-conta-certa-poster.png`](assets/qrcode-instalacao-conta-certa-poster.png)
-
-Veja: [`docs/QR_CODE_INSTALACAO.md`](docs/QR_CODE_INSTALACAO.md).
-## Instalação em um toque
-
-Para facilitar o acesso de moradores e demais usuários, o Conta Certa possui uma página específica de instalação:
-
-**[📲 Instalar Conta Certa no celular](https://priscillacahino.github.io/Conta-certa-/instalar.html)**
-
-No Android, a página aciona o prompt nativo de instalação quando o navegador permite. No iPhone/iPad, ela mostra o caminho para **Adicionar à Tela de Início**, pois o iOS não permite instalação silenciosa por sites.
-
-O usuário não precisa baixar ZIP, APK nem acessar o repositório.
-
-Veja: [`docs/LINK_INSTALACAO.md`](docs/LINK_INSTALACAO.md).
 ## Instalação como PWA
 
 O Conta Certa possui publicação automatizada por **GitHub Pages**. Cada atualização na branch `main` executa primeiro os testes e a auditoria de privacidade e, somente se tudo passar, publica a PWA em HTTPS.
@@ -215,7 +199,7 @@ No MVP atual existe **um perfil administrativo por instalação/navegador**. A s
 Veja: [`docs/ADMINISTRADOR.md`](docs/ADMINISTRADOR.md).
 ## Status
 
-🚧 **Em desenvolvimento — v0.9.4 (instalador simplificado, histórico conciliado, backup protegido e interface operacional).**
+🚧 **Em desenvolvimento — v0.9.6 (despesas discriminadas, cancelamento auditável e fechamentos históricos).**
 
 A planilha histórica real será utilizada para validação e migração dos dados, sem expor nomes de moradores, telefones ou endereço completo nos dados públicos de demonstração.
 

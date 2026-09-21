@@ -1,5 +1,5 @@
 import { createSnapshotEnvelope, validateSnapshot } from './backup.js';
-import { competenceFromIso } from './closing.js';
+import { competenceFromIso, historicalClosingFromPeriod } from './closing.js';
 
 const DB_NAME = 'conta-certa';
 const DB_VERSION = 6;
@@ -115,6 +115,45 @@ export const listTransactions = () => getAll(TRANSACTIONS);
 export const listMonthClosings = () => getAll(MONTH_CLOSINGS);
 export const listClosingEvents = () => getAll(CLOSING_EVENTS);
 export const getMonthClosing = competence => getFrom(MONTH_CLOSINGS, competence, null);
+
+
+export async function syncHistoricalClosings(periods = [], cutoffCompetence) {
+  if (!Array.isArray(periods)) throw new TypeError('PERIODOS_HISTORICOS_INVALIDOS');
+  if (cutoffCompetence && !/^\d{4}-(0[1-9]|1[0-2])$/.test(cutoffCompetence)) throw new Error('COMPETENCIA_LIMITE_INVALIDA');
+
+  const candidates = periods.filter(period =>
+    period?.id && (!cutoffCompetence || String(period.id) < String(cutoffCompetence))
+  );
+  if (!candidates.length) return [];
+
+  const existing = new Map((await listMonthClosings()).map(item => [String(item.competence ?? item.id), item]));
+  const missing = candidates.filter(period => !existing.has(String(period.id)));
+  if (!missing.length) return [];
+
+  const importedAt = new Date().toISOString();
+  const records = missing.map(period => historicalClosingFromPeriod(period, importedAt));
+  const db = await openDb();
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([MONTH_CLOSINGS, CLOSING_EVENTS], 'readwrite');
+    const closings = tx.objectStore(MONTH_CLOSINGS);
+    const events = tx.objectStore(CLOSING_EVENTS);
+    for (const record of records) {
+      closings.put(record);
+      events.add({
+        id: crypto.randomUUID(),
+        competence: record.competence,
+        type: 'HISTORICAL_IMPORT',
+        at: importedAt,
+        sourceStatus: record.sourceStatus,
+        closingBalanceCents: record.closingBalanceCents,
+      });
+    }
+    tx.oncomplete = () => resolve(records);
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error ?? new Error('SINCRONIZACAO_HISTORICA_ABORTADA'));
+  });
+}
 
 export async function saveObligations(obligations = []) {
   const db = await openDb();

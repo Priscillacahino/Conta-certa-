@@ -35,3 +35,9 @@ Exemplo: R$ 100,00 em 3 parcelas vira R$ 33,34 + R$ 33,33 + R$ 33,33.
 Obrigações não devem ser apagadas silenciosamente. Cancelamentos precisam conservar o registro. Pagamentos devem gerar trilha própria, com data e valor.
 
 O histórico importado da planilha antiga continua como referência financeira; ele não substitui o livro de obrigações para emissão de declaração.
+
+## Cancelamento por lançamento indevido
+
+Uma obrigação criada por engano não é apagada silenciosamente. Se ainda não houver pagamento, o administrador pode cancelá-la informando um motivo. O registro permanece no histórico com status `cancelled`, deixa de compor o saldo pendente e não bloqueia a declaração de adimplência.
+
+Obrigações que já tenham pagamento exigem um fluxo próprio de correção/estorno e não podem ser simplesmente canceladas.

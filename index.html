@@ -176,7 +176,43 @@
         </section>
 
         <div class="subsection">
-          <div class="section-title compact"><div><span class="eyebrow">Lançamento</span><h3>Nova movimentação</h3></div></div>
+          <div class="section-title compact">
+            <div><span class="eyebrow">Despesas obrigatórias</span><h3>Água e energia</h3></div>
+          </div>
+          <p>Água e energia precisam estar registradas antes do fechamento da competência. Os valores podem ser atualizados enquanto o mês estiver aberto.</p>
+          <div class="form-grid">
+            <label>Data da água<input id="water-expense-date" type="date"></label>
+            <label>Valor da água (R$)<input id="water-expense-amount" type="number" min="0" step="0.01"></label>
+          </div>
+          <div class="actions">
+            <button id="save-water-expense" type="button">Registrar Água</button>
+            <span id="water-expense-status" class="status-badge attention">Pendente</span>
+          </div>
+          <div class="form-grid">
+            <label>Data da energia<input id="energy-expense-date" type="date"></label>
+            <label>Valor da energia (R$)<input id="energy-expense-amount" type="number" min="0" step="0.01"></label>
+          </div>
+          <div class="actions">
+            <button id="save-energy-expense" type="button">Registrar Energia</button>
+            <span id="energy-expense-status" class="status-badge attention">Pendente</span>
+          </div>
+        </div>
+
+        <div class="subsection">
+          <div class="section-title compact">
+            <div><span class="eyebrow">Despesas variáveis</span><h3>Outras despesas</h3></div>
+          </div>
+          <p>Adicione quantas despesas forem necessárias no mês. Cada item aparecerá separadamente na prestação de contas.</p>
+          <div class="form-grid">
+            <label>Data<input id="other-expense-date" type="date"></label>
+            <label class="wide">Descrição<input id="other-expense-description" placeholder="Ex.: Dedetização, cupinização, conserto de vazamento"></label>
+            <label>Valor (R$)<input id="other-expense-amount" type="number" min="0" step="0.01"></label>
+          </div>
+          <div class="actions"><button id="add-other-expense" type="button">Adicionar outra despesa</button></div>
+        </div>
+
+        <div class="subsection">
+          <div class="section-title compact"><div><span class="eyebrow">Lançamento manual</span><h3>Receita ou ajuste adicional</h3></div></div>
           <div class="form-grid">
             <label>Data<input id="movement-date" type="date"></label>
             <label>Tipo<select id="movement-kind"><option value="expense">Despesa</option><option value="income">Receita</option></select></label>
@@ -289,7 +325,7 @@
     </section>
   </main>
 
-  <footer>Conta Certa • v0.9.3 — correção da interface operacional</footer>
+  <footer>Conta Certa • v0.9.6 — despesas mensais discriminadas</footer>
   <script type="module" src="src/app.js"></script>
 </body>
 </html>

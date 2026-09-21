@@ -36,3 +36,15 @@ Depois que uma competência é fechada:
 ## Reabertura controlada
 
 Uma competência fechada pode ser reaberta somente com justificativa. O evento é preservado. Ao fechar novamente, a revisão do fechamento é incrementada, sem apagar o registro da reabertura.
+
+## Fechamentos históricos importados
+
+Competências provenientes da base histórica e anteriores à competência operacional atual são materializadas como `closed` com origem `historical_import`. Elas preservam os totais da fonte conciliada, ficam bloqueadas para novos lançamentos e não são reabertas pela interface operacional.
+
+Esse mecanismo evita que meses históricos já encerrados apareçam incorretamente como “Em aberto”. Correções nesses períodos devem ser feitas na fonte histórica e reimportadas.
+
+## Despesas obrigatórias e discriminação
+
+No fluxo operacional mensal, Água e Energia são despesas recorrentes obrigatórias. O fechamento é bloqueado enquanto uma delas não estiver registrada.
+
+A seção “Outras despesas” permite adicionar vários itens independentes no mesmo mês, por exemplo dedetização, cupinização, conserto de vazamento ou qualquer outro gasto. Cada despesa possui data, descrição e valor próprios e aparece separadamente na prestação de contas mensal.

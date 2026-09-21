@@ -22,3 +22,9 @@ test('interface operacional inclui caixa, backup e projeções ampliadas', () =>
     'backup-passphrase','backup-confirm','create-backup','restore-backup','committed-amount','contingency-percent','projection-comparison'
   ]) assert.match(html, new RegExp(`id=["']${id}["']`));
 });
+
+test('interface possui despesas mensais discriminadas', () => {
+  for (const id of ['water-expense-date','water-expense-amount','save-water-expense','energy-expense-date','energy-expense-amount','save-energy-expense','other-expense-date','other-expense-description','other-expense-amount','add-other-expense']) {
+    assert.match(html, new RegExp(`id=["']${id}["']`));
+  }
+});

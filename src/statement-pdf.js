@@ -11,9 +11,17 @@ function competenceLabel(value) { const [y,m]=String(value).split('-'); const na
 function fmtDate(value) { const d=new Date(value); return Number.isNaN(d.getTime()) ? String(value??'') : d.toLocaleDateString('pt-BR'); }
 function wrap(value,max=70) { const words=String(value??'').split(/\s+/).filter(Boolean); const out=[]; let line=''; for(const w of words){const n=line?`${line} ${w}`:w;if(n.length>max&&line){out.push(line);line=w;}else line=n;} if(line)out.push(line); return out; }
 
-function row(content, y, date, description, amount, kind) {
+function movementDescription(category, description) {
+  const c = String(category ?? '').trim();
+  const d = String(description ?? '').trim();
+  if (!c) return d;
+  if (!d || d.toLocaleLowerCase('pt-BR').startsWith(c.toLocaleLowerCase('pt-BR'))) return d || c;
+  return `${c} — ${d}`;
+}
+
+function row(content, y, date, description, amount, kind, category = '') {
   text(content, 48, y, 8.2, fmtDate(date), 'F1', [0.32,0.39,0.48]);
-  const desc = String(description ?? '').slice(0, 58);
+  const desc = movementDescription(category, description).slice(0, 58);
   text(content, 112, y, 8.4, desc, 'F1', [0.08,0.15,0.25]);
   text(content, 458, y, 8.4, `${kind === 'expense' ? '-' : '+'} ${money(amount)}`, 'F2', kind === 'expense' ? [0.55,0.18,0.18] : [0.10,0.45,0.27]);
 }
@@ -38,14 +46,14 @@ function makePage({ residentialName, address, closing, rows, pageNumber, pageCou
     const xs=[38,147,256,365,474];
     metrics.forEach(([label,value],i)=>{content.push(`0.96 0.98 0.99 rg ${xs[i]} ${y-38} 96 48 re f`); text(content,xs[i]+7,y-9,7.4,label,'F1',[0.35,0.43,0.52]); text(content,xs[i]+7,y-28,10.2,money(value),'F2', value<0?[0.55,0.18,0.18]:[0.04,0.18,0.32]);});
     y-=72;
-    text(content, 38, y, 8.2, `Fechado em ${fmtDate(closing.closedAt)} - revisão ${closing.revision} - status: FECHADO`, 'F2', [0.10,0.45,0.27]);
+    text(content, 38, y, 8.2, closing.source === 'historical_import' ? 'Fechamento histórico importado - status: FECHADO' : `Fechado em ${fmtDate(closing.closedAt)} - revisão ${closing.revision} - status: FECHADO`, 'F2', [0.10,0.45,0.27]);
     y-=27;
   } else {
     text(content,38,y,14,`Movimentações - continuação (${competenceLabel(closing.competence)})`,'F2',[0.04,0.18,0.32]); y-=32;
   }
   text(content,48,y,7.4,'DATA','F2',[0.35,0.43,0.52]); text(content,112,y,7.4,'DESCRIÇÃO','F2',[0.35,0.43,0.52]); text(content,458,y,7.4,'VALOR','F2',[0.35,0.43,0.52]); y-=13;
   content.push(`0.82 0.87 0.91 RG 0.6 w 38 ${y+7} m 557 ${y+7} l S`);
-  for (const item of rows) { row(content,y,item.date,item.description,item.amountCents,item.kind); y-=18; }
+  for (const item of rows) { row(content,y,item.date,item.description,item.amountCents,item.kind,item.category); y-=18; }
   if (!rows.length) text(content,48,y,8.5,'Nenhuma movimentação registrada nesta competência.','F1',[0.35,0.43,0.52]);
   text(content,38,35,7.1,'Documento gerado localmente pelo Conta Certa. O fechamento mensal preserva os valores usados nesta prestação de contas.','F1',[0.35,0.43,0.52]);
   return `${content.join('\n')}\n`;
@@ -54,7 +62,7 @@ function makePage({ residentialName, address, closing, rows, pageNumber, pageCou
 export function buildMonthlyStatementPdf({ residential, closing, payments = [], movements = [] }) {
   if (!closing || closing.status !== 'closed') throw new Error('PRESTACAO_EXIGE_COMPETENCIA_FECHADA');
   const revenueRows = [
-    ...payments.filter(p => closing.paymentIds?.includes(p.id)).map(p => ({ date:p.paidAt, description:p.description || `Pagamento - unidade ${p.unitId}`, amountCents:p.amountCents, kind:'income' })),
+    ...payments.filter(p => closing.paymentIds?.includes(p.id)).map(p => ({ date:p.paidAt, category:'Receita', description:p.description || `Pagamento - unidade ${p.unitId}`, amountCents:p.amountCents, kind:'income' })),
     ...movements.filter(m => closing.movementIds?.includes(m.id) && m.kind === 'income')
   ];
   const expenseRows = movements.filter(m => closing.movementIds?.includes(m.id) && m.kind === 'expense');
