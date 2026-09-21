@@ -1,4 +1,4 @@
-name: Publicar PWA no GitHub Pages
+﻿name: Publicar PWA no GitHub Pages
 
 on:
   push:
@@ -18,7 +18,7 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - name: Baixar repositório
+      - name: Baixar repositÃ³rio
         uses: actions/checkout@v4
 
       - name: Configurar Node.js
@@ -26,17 +26,38 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Verificar aplicação
+      - name: Verificar aplicaÃ§Ã£o
         run: npm run verify
 
+
+  backend-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Baixar repositorio
+        uses: actions/checkout@v4
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Instalar backend
+        run: pip install -r requirements.txt
+      - name: Gerar migrations e verificar modelos
+        run: |
+          python manage.py makemigrations core --check --dry-run
+          python manage.py migrate --run-syncdb
+      - name: Testar backend
+        run: python manage.py test
   deploy:
-    needs: verify
+    needs: [verify, backend-test]
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Baixar repositório
+      - name: Baixar repositÃ³rio
         uses: actions/checkout@v4
 
       - name: Preparar GitHub Pages
@@ -44,12 +65,12 @@ jobs:
         with:
           enablement: true
 
-      - name: Montar pacote público
+      - name: Montar pacote pÃºblico
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p _site
-          cp index.html instalar.html morador.html instalar-morador.html styles.css resident.css manifest.webmanifest manifest-morador.webmanifest sw.js _site/
+          cp index.html instalar.html morador.html instalar-morador.html sincronizacao.html styles.css resident.css manifest.webmanifest manifest-morador.webmanifest sw.js _site/
           cp -R assets icons src _site/
 
       - name: Enviar artefato do Pages
@@ -60,4 +81,5 @@ jobs:
       - name: Publicar
         id: deployment
         uses: actions/deploy-pages@v4
+
 

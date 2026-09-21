@@ -1,7 +1,7 @@
-{
+﻿{
   "name": "Conta Certa",
   "short_name": "Conta Certa",
-  "description": "Gestão financeira compartilhada para pequenos condomínios.",
+  "description": "GestÃ£o financeira compartilhada para pequenos condomÃ­nios.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -14,3 +14,4 @@
     {"src":"icons/icon-maskable-512.png","sizes":"512x512","type":"image/png","purpose":"maskable"}
   ]
 }
+

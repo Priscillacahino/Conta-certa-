@@ -8,3 +8,17 @@ Thumbs.db
 
 # Pacotes individuais do morador: nunca publicar
 *.ccresident.json
+
+# Segredos do backend
+backend/.env
+backend/.env.local
+.env
+.env.local
+*.sqlite3
+backend/staticfiles/
+
+__pycache__/
+*.py[cod]
+.venv/
+backend/.venv/
+backend/db.sqlite3

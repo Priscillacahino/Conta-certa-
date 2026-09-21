@@ -1,12 +1,12 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0b3158">
   <meta name="referrer" content="no-referrer">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'; worker-src 'self'">
-  <meta name="description" content="Conta Certa — gestão financeira compartilhada para pequenos condomínios.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https: http://localhost:* http://127.0.0.1:*; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'; worker-src 'self'">
+  <meta name="description" content="Conta Certa â€” gestÃ£o financeira compartilhada para pequenos condomÃ­nios.">
   <link rel="manifest" href="manifest.webmanifest?v=0100">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -16,8 +16,8 @@
 <body class="app-locked">
   <section id="security-gate" class="security-gate" aria-live="polite">
     <div class="security-panel">
-      <img src="icons/icon-192.png" alt="Ícone Conta Certa" class="security-icon">
-      <span class="eyebrow">Proteção local</span>
+      <img src="icons/icon-192.png" alt="Ãcone Conta Certa" class="security-icon">
+      <span class="eyebrow">ProteÃ§Ã£o local</span>
       <h2 id="security-title">Conta Certa protegido</h2>
       <p id="security-help">Informe seu PIN ou senha para acessar os dados financeiros.</p>
       <form id="security-form">
@@ -26,29 +26,29 @@
         <button id="security-submit" type="submit">Desbloquear</button>
       </form>
       <p id="security-feedback" class="feedback" role="status"></p>
-      <small class="security-note">A credencial é validada somente neste aparelho. O Conta Certa não armazena a senha em texto puro.</small>
+      <small class="security-note">A credencial Ã© validada somente neste aparelho. O Conta Certa nÃ£o armazena a senha em texto puro.</small>
     </div>
   </section>
   <header class="app-header">
     <div class="brand-header">
-      <img class="brand-app-icon" src="icons/icon-192.png" alt="Ícone do Conta Certa">
+      <img class="brand-app-icon" src="icons/icon-192.png" alt="Ãcone do Conta Certa">
       <div>
-        <span class="eyebrow">Gestão compartilhada</span>
+        <span class="eyebrow">GestÃ£o compartilhada</span>
         <h1>Conta Certa</h1>
-        <p>Contas transparentes, decisões mais claras.</p>
+        <p>Contas transparentes, decisÃµes mais claras.</p>
       </div>
     </div>
     <div class="header-actions"><div class="status-pill">Offline-first</div><button id="lock-app" class="header-lock" type="button">Bloquear</button></div>
   </header>
 
-  <nav class="app-nav" aria-label="Áreas do aplicativo">
-    <button class="nav-button active" data-view="overview">Visão geral</button>
-    <button class="nav-button" data-view="history">Histórico</button>
-    <button class="nav-button" data-view="projections">Projeções</button>
+  <nav class="app-nav" aria-label="Ãreas do aplicativo">
+    <button class="nav-button active" data-view="overview">VisÃ£o geral</button>
+    <button class="nav-button" data-view="history">HistÃ³rico</button>
+    <button class="nav-button" data-view="projections">ProjeÃ§Ãµes</button>
     <button class="nav-button" data-view="cashbook">Caixa & backup</button>
-    <button class="nav-button" data-view="obligations">Obrigações</button>
-    <button class="nav-button" data-view="residents">Moradores</button>
-    <button class="nav-button" data-view="compliance">Adimplência</button>
+    <button class="nav-button" data-view="obligations">ObrigaÃ§Ãµes</button>
+    <button class="nav-button" data-view="residents">Moradores</button><a class="nav-button" href="sincronizacao.html">Sincronização</a>
+    <button class="nav-button" data-view="compliance">AdimplÃªncia</button>
   </nav>
 
   <main>
@@ -57,26 +57,26 @@
         <div class="section-title compact">
           <div>
             <span class="eyebrow">Base financeira</span>
-            <h2>Visão geral</h2>
+            <h2>VisÃ£o geral</h2>
           </div>
-          <span id="import-state" class="status-badge neutral">Sem importação</span>
+          <span id="import-state" class="status-badge neutral">Sem importaÃ§Ã£o</span>
         </div>
-        <p>Os dados reais ficam no seu aparelho. O arquivo privado não precisa ser publicado junto com o código.</p>
+        <p>Os dados reais ficam no seu aparelho. O arquivo privado nÃ£o precisa ser publicado junto com o cÃ³digo.</p>
       </section>
 
       <section class="kpi-grid">
-        <article class="kpi"><span>Saldo mais recente</span><strong id="kpi-balance">—</strong><small id="kpi-balance-period">Sem histórico</small></article>
-        <article class="kpi"><span>Competências importadas</span><strong id="kpi-periods">0</strong><small id="kpi-range">—</small></article>
-        <article class="kpi"><span>Classificadas</span><strong id="kpi-reconciled">0</strong><small id="kpi-review">0 revisão manual</small></article>
+        <article class="kpi"><span>Saldo mais recente</span><strong id="kpi-balance">â€”</strong><small id="kpi-balance-period">Sem histÃ³rico</small></article>
+        <article class="kpi"><span>CompetÃªncias importadas</span><strong id="kpi-periods">0</strong><small id="kpi-range">â€”</small></article>
+        <article class="kpi"><span>Classificadas</span><strong id="kpi-reconciled">0</strong><small id="kpi-review">0 revisÃ£o manual</small></article>
         <article class="kpi"><span>Unidades</span><strong id="kpi-units">0</strong><small>cadastros locais</small></article>
       </section>
 
       <section class="card">
         <div class="section-title compact">
-          <div><span class="eyebrow">Migração</span><h2>Importar histórico</h2></div>
+          <div><span class="eyebrow">MigraÃ§Ã£o</span><h2>Importar histÃ³rico</h2></div>
         </div>
-        <p>Selecione o arquivo JSON privado gerado a partir da planilha. A importação substitui a base histórica local, sem alterar o arquivo original.</p>
-        <label class="file-picker">Arquivo de importação (.json)
+        <p>Selecione o arquivo JSON privado gerado a partir da planilha. A importaÃ§Ã£o substitui a base histÃ³rica local, sem alterar o arquivo original.</p>
+        <label class="file-picker">Arquivo de importaÃ§Ã£o (.json)
           <input id="import-file" type="file" accept="application/json,.json">
         </label>
         <div class="actions"><button id="import-button" type="button">Importar no aparelho</button></div>
@@ -87,9 +87,9 @@
       <section class="card">
         <div class="section-title compact">
           <div><span class="eyebrow">Dados locais protegidos</span><h2>Cadastro privado do residencial</h2></div>
-          <span id="private-profile-state" class="status-badge neutral">Não carregado</span>
+          <span id="private-profile-state" class="status-badge neutral">NÃ£o carregado</span>
         </div>
-        <p>Importe o arquivo <code>.private.json</code> com endereço, unidades, responsáveis e telefones. Esse cadastro não substitui o histórico financeiro e não deve ser publicado no GitHub.</p>
+        <p>Importe o arquivo <code>.private.json</code> com endereÃ§o, unidades, responsÃ¡veis e telefones. Esse cadastro nÃ£o substitui o histÃ³rico financeiro e nÃ£o deve ser publicado no GitHub.</p>
         <label class="file-picker">Cadastro privado (.private.json)
           <input id="private-profile-file" type="file" accept="application/json,.json,.private.json">
         </label>
@@ -99,10 +99,10 @@
 
       <section class="card">
         <div class="section-title compact">
-          <div><span class="eyebrow">Acesso administrativo</span><h2>Segurança local</h2></div>
+          <div><span class="eyebrow">Acesso administrativo</span><h2>SeguranÃ§a local</h2></div>
           <span id="security-state" class="status-badge ok">Protegido</span>
         </div>
-        <p>A sessão é bloqueada automaticamente após 10 minutos sem atividade e também pode ser bloqueada manualmente.</p>
+        <p>A sessÃ£o Ã© bloqueada automaticamente apÃ³s 10 minutos sem atividade e tambÃ©m pode ser bloqueada manualmente.</p>
         <div class="actions"><button id="change-security-secret" class="secondary" type="button">Alterar PIN/senha</button><button id="lock-app-card" class="secondary" type="button">Bloquear agora</button></div>
         <p id="security-settings-feedback" class="feedback" role="status"></p>
       </section>
@@ -115,59 +115,59 @@
 
     <section class="view" id="view-history">
       <section class="card intro">
-        <span class="eyebrow">Conciliação</span>
-        <h2>Histórico financeiro</h2>
-        <p>As diferenças históricas são classificadas como conciliadas, explicadas, legado ou revisão manual. Nenhuma correção é escondida.</p>
+        <span class="eyebrow">ConciliaÃ§Ã£o</span>
+        <h2>HistÃ³rico financeiro</h2>
+        <p>As diferenÃ§as histÃ³ricas sÃ£o classificadas como conciliadas, explicadas, legado ou revisÃ£o manual. Nenhuma correÃ§Ã£o Ã© escondida.</p>
       </section>
       <section class="card table-card">
-        <div id="history-table"><p class="muted">Nenhum histórico importado.</p></div>
+        <div id="history-table"><p class="muted">Nenhum histÃ³rico importado.</p></div>
       </section>
-      <section class="notice warning-notice"><strong>Segurança:</strong> a planilha histórica é referência financeira. Declarações de adimplência serão emitidas pelo livro de obrigações do Conta Certa, e não apenas pela presença de pagamentos na planilha antiga.</section>
+      <section class="notice warning-notice"><strong>SeguranÃ§a:</strong> a planilha histÃ³rica Ã© referÃªncia financeira. DeclaraÃ§Ãµes de adimplÃªncia serÃ£o emitidas pelo livro de obrigaÃ§Ãµes do Conta Certa, e nÃ£o apenas pela presenÃ§a de pagamentos na planilha antiga.</section>
     </section>
 
     <section class="view" id="view-projections">
       <section class="card intro">
-        <h2>Projeção de gastos</h2>
-        <p>Registre orçamentos antes de assumir um compromisso. A projeção não altera o caixa real.</p>
+        <h2>ProjeÃ§Ã£o de gastos</h2>
+        <p>Registre orÃ§amentos antes de assumir um compromisso. A projeÃ§Ã£o nÃ£o altera o caixa real.</p>
       </section>
 
       <section class="card">
-        <div class="section-title"><div><span class="eyebrow">Novo planejamento</span><h2>Serviço ou melhoria</h2></div></div>
+        <div class="section-title"><div><span class="eyebrow">Novo planejamento</span><h2>ServiÃ§o ou melhoria</h2></div></div>
         <div class="form-grid">
-          <label class="wide">Nome do projeto<input id="project-name" value="Serviço de fachada" placeholder="Ex.: Serviço de fachada"></label>
+          <label class="wide">Nome do projeto<input id="project-name" value="ServiÃ§o de fachada" placeholder="Ex.: ServiÃ§o de fachada"></label>
           <label>Saldo atual em caixa (R$)<input id="cash-balance" type="number" min="0" step="0.01"></label>
-          <label>Reserva mínima protegida (R$)<input id="protected-reserve" type="number" min="0" step="0.01"></label>
-          <label>Compromissos já assumidos (R$)<input id="committed-amount" type="number" min="0" step="0.01"></label>
-          <label>Margem de contingência (%)<input id="contingency-percent" type="number" min="0" step="0.01"></label>
+          <label>Reserva mÃ­nima protegida (R$)<input id="protected-reserve" type="number" min="0" step="0.01"></label>
+          <label>Compromissos jÃ¡ assumidos (R$)<input id="committed-amount" type="number" min="0" step="0.01"></label>
+          <label>Margem de contingÃªncia (%)<input id="contingency-percent" type="number" min="0" step="0.01"></label>
           <label>Unidades ativas<input id="active-units" type="number" min="1" step="1"></label>
         </div>
         <div class="subsection">
-          <div class="section-title compact"><h3>Orçamentos recebidos</h3><button id="add-quote" class="secondary" type="button">+ Adicionar</button></div>
+          <div class="section-title compact"><h3>OrÃ§amentos recebidos</h3><button id="add-quote" class="secondary" type="button">+ Adicionar</button></div>
           <div id="quote-list"></div>
         </div>
-        <div class="actions"><button id="calculate" type="button">Calcular projeção</button><button id="save-projection" class="secondary" type="button">Salvar no aparelho</button></div>
+        <div class="actions"><button id="calculate" type="button">Calcular projeÃ§Ã£o</button><button id="save-projection" class="secondary" type="button">Salvar no aparelho</button></div>
         <p id="save-feedback" class="feedback" role="status"></p>
       </section>
 
-      <section class="card"><div class="section-title compact"><h2>Resultado</h2><span class="muted">Comparação individual por orçamento</span></div><p id="projection-comparison" class="muted">Adicione um ou mais orçamentos para comparar cenários.</p><div id="projection-result" class="result-grid"><p class="muted">Preencha um orçamento e toque em “Calcular projeção”.</p></div></section>
-      <section class="card"><h2>Projeções salvas</h2><div id="projection-history"></div></section>
+      <section class="card"><div class="section-title compact"><h2>Resultado</h2><span class="muted">ComparaÃ§Ã£o individual por orÃ§amento</span></div><p id="projection-comparison" class="muted">Adicione um ou mais orÃ§amentos para comparar cenÃ¡rios.</p><div id="projection-result" class="result-grid"><p class="muted">Preencha um orÃ§amento e toque em â€œCalcular projeÃ§Ã£oâ€.</p></div></section>
+      <section class="card"><h2>ProjeÃ§Ãµes salvas</h2><div id="projection-history"></div></section>
     </section>
 
 
     <section class="view" id="view-cashbook">
       <section class="card intro">
-        <span class="eyebrow">Operação mensal</span>
+        <span class="eyebrow">OperaÃ§Ã£o mensal</span>
         <h2>Caixa, fechamento e backup</h2>
-        <p>Registre movimentações, confira o resumo da competência, feche o mês, gere a prestação de contas e mantenha um backup criptografado dos dados locais.</p>
+        <p>Registre movimentaÃ§Ãµes, confira o resumo da competÃªncia, feche o mÃªs, gere a prestaÃ§Ã£o de contas e mantenha um backup criptografado dos dados locais.</p>
       </section>
 
       <section class="card">
-        <div class="section-title compact"><div><span class="eyebrow">Competência</span><h2>Fechamento mensal</h2></div><span id="closing-state" class="status-badge neutral">Em aberto</span></div>
+        <div class="section-title compact"><div><span class="eyebrow">CompetÃªncia</span><h2>Fechamento mensal</h2></div><span id="closing-state" class="status-badge neutral">Em aberto</span></div>
         <div class="form-grid">
-          <label>Competência<input id="closing-competence" type="month"></label>
+          <label>CompetÃªncia<input id="closing-competence" type="month"></label>
           <label>Saldo inicial (R$)<input id="closing-opening-balance" type="number" step="0.01"></label>
         </div>
-        <p id="opening-balance-source" class="muted">O saldo inicial será transportado da competência anterior quando disponível.</p>
+        <p id="opening-balance-source" class="muted">O saldo inicial serÃ¡ transportado da competÃªncia anterior quando disponÃ­vel.</p>
         <section class="kpi-grid closing-kpis">
           <article class="kpi"><span>Saldo inicial</span><strong id="closing-opening">R$ 0,00</strong></article>
           <article class="kpi"><span>Receitas</span><strong id="closing-revenue">R$ 0,00</strong></article>
@@ -178,15 +178,15 @@
 
         <div class="subsection">
           <div class="section-title compact">
-            <div><span class="eyebrow">Despesas obrigatórias</span><h3>Água e energia</h3></div>
+            <div><span class="eyebrow">Despesas obrigatÃ³rias</span><h3>Ãgua e energia</h3></div>
           </div>
-          <p>Água e energia precisam estar registradas antes do fechamento da competência. Os valores podem ser atualizados enquanto o mês estiver aberto.</p>
+          <p>Ãgua e energia precisam estar registradas antes do fechamento da competÃªncia. Os valores podem ser atualizados enquanto o mÃªs estiver aberto.</p>
           <div class="form-grid">
-            <label>Data da água<input id="water-expense-date" type="date"></label>
-            <label>Valor da água (R$)<input id="water-expense-amount" type="number" min="0" step="0.01"></label>
+            <label>Data da Ã¡gua<input id="water-expense-date" type="date"></label>
+            <label>Valor da Ã¡gua (R$)<input id="water-expense-amount" type="number" min="0" step="0.01"></label>
           </div>
           <div class="actions">
-            <button id="save-water-expense" type="button">Registrar Água</button>
+            <button id="save-water-expense" type="button">Registrar Ãgua</button>
             <span id="water-expense-status" class="status-badge attention">Pendente</span>
           </div>
           <div class="form-grid">
@@ -201,37 +201,37 @@
 
         <div class="subsection">
           <div class="section-title compact">
-            <div><span class="eyebrow">Despesas variáveis</span><h3>Outras despesas</h3></div>
+            <div><span class="eyebrow">Despesas variÃ¡veis</span><h3>Outras despesas</h3></div>
           </div>
-          <p>Adicione quantas despesas forem necessárias no mês. Cada item aparecerá separadamente na prestação de contas.</p>
+          <p>Adicione quantas despesas forem necessÃ¡rias no mÃªs. Cada item aparecerÃ¡ separadamente na prestaÃ§Ã£o de contas.</p>
           <div class="form-grid">
             <label>Data<input id="other-expense-date" type="date"></label>
-            <label class="wide">Descrição<input id="other-expense-description" placeholder="Ex.: Dedetização, cupinização, conserto de vazamento"></label>
+            <label class="wide">DescriÃ§Ã£o<input id="other-expense-description" placeholder="Ex.: DedetizaÃ§Ã£o, cupinizaÃ§Ã£o, conserto de vazamento"></label>
             <label>Valor (R$)<input id="other-expense-amount" type="number" min="0" step="0.01"></label>
           </div>
           <div class="actions"><button id="add-other-expense" type="button">Adicionar outra despesa</button></div>
         </div>
 
         <div class="subsection">
-          <div class="section-title compact"><div><span class="eyebrow">Lançamento manual</span><h3>Receita ou ajuste adicional</h3></div></div>
+          <div class="section-title compact"><div><span class="eyebrow">LanÃ§amento manual</span><h3>Receita ou ajuste adicional</h3></div></div>
           <div class="form-grid">
             <label>Data<input id="movement-date" type="date"></label>
             <label>Tipo<select id="movement-kind"><option value="expense">Despesa</option><option value="income">Receita</option></select></label>
-            <label>Categoria<input id="movement-category" placeholder="Ex.: Manutenção"></label>
-            <label class="wide">Descrição<input id="movement-description" placeholder="Ex.: Reparo do portão"></label>
+            <label>Categoria<input id="movement-category" placeholder="Ex.: ManutenÃ§Ã£o"></label>
+            <label class="wide">DescriÃ§Ã£o<input id="movement-description" placeholder="Ex.: Reparo do portÃ£o"></label>
             <label>Valor (R$)<input id="movement-amount" type="number" min="0" step="0.01"></label>
           </div>
-          <div class="actions"><button id="save-movement" type="button">Registrar movimentação</button></div>
+          <div class="actions"><button id="save-movement" type="button">Registrar movimentaÃ§Ã£o</button></div>
         </div>
 
-        <div class="subsection"><h3>Movimentações da competência</h3><div id="closing-movements"><p class="muted">Nenhuma movimentação registrada.</p></div></div>
-        <div class="actions"><button id="close-month" type="button">Fechar competência</button><button id="reopen-month" class="secondary" type="button">Reabrir</button><button id="download-statement" class="secondary" type="button">Baixar prestação de contas</button></div>
+        <div class="subsection"><h3>MovimentaÃ§Ãµes da competÃªncia</h3><div id="closing-movements"><p class="muted">Nenhuma movimentaÃ§Ã£o registrada.</p></div></div>
+        <div class="actions"><button id="close-month" type="button">Fechar competÃªncia</button><button id="reopen-month" class="secondary" type="button">Reabrir</button><button id="download-statement" class="secondary" type="button">Baixar prestaÃ§Ã£o de contas</button></div>
         <p id="closing-feedback" class="feedback" role="status"></p>
       </section>
 
       <section class="card">
-        <div class="section-title compact"><div><span class="eyebrow">Proteção de dados</span><h2>Backup e restauração</h2></div></div>
-        <p>O backup reúne os dados operacionais do Conta Certa em um arquivo criptografado. Use uma senha de backup com pelo menos 8 caracteres e guarde a senha separadamente do arquivo.</p>
+        <div class="section-title compact"><div><span class="eyebrow">ProteÃ§Ã£o de dados</span><h2>Backup e restauraÃ§Ã£o</h2></div></div>
+        <p>O backup reÃºne os dados operacionais do Conta Certa em um arquivo criptografado. Use uma senha de backup com pelo menos 8 caracteres e guarde a senha separadamente do arquivo.</p>
         <div class="form-grid">
           <label>Senha do backup<input id="backup-passphrase" type="password" minlength="8" autocomplete="new-password"></label>
           <label>Confirmar senha<input id="backup-confirm" type="password" minlength="8" autocomplete="new-password"></label>
@@ -244,21 +244,21 @@
 
     <section class="view" id="view-obligations">
       <section class="card intro">
-        <span class="eyebrow">Fonte oficial da adimplência</span>
-        <h2>Livro de obrigações</h2>
-        <p>Mensalidades, taxas extraordinárias, parcelamentos e outras cobranças ficam registradas por unidade. Pagamento parcial continua pendente até a quitação integral.</p>
+        <span class="eyebrow">Fonte oficial da adimplÃªncia</span>
+        <h2>Livro de obrigaÃ§Ãµes</h2>
+        <p>Mensalidades, taxas extraordinÃ¡rias, parcelamentos e outras cobranÃ§as ficam registradas por unidade. Pagamento parcial continua pendente atÃ© a quitaÃ§Ã£o integral.</p>
       </section>
 
       <section class="kpi-grid obligation-kpis">
-        <article class="kpi"><span>Obrigações</span><strong id="obligation-total">0</strong><small>ativas no livro</small></article>
+        <article class="kpi"><span>ObrigaÃ§Ãµes</span><strong id="obligation-total">0</strong><small>ativas no livro</small></article>
         <article class="kpi"><span>Pendentes</span><strong id="obligation-pending">0</strong><small>abertas ou parciais</small></article>
-        <article class="kpi"><span>Saldo a receber</span><strong id="obligation-outstanding">R$ 0,00</strong><small>somatório pendente</small></article>
+        <article class="kpi"><span>Saldo a receber</span><strong id="obligation-outstanding">R$ 0,00</strong><small>somatÃ³rio pendente</small></article>
       </section>
 
       <section class="card">
-        <div class="section-title compact"><div><span class="eyebrow">Cobrança recorrente</span><h2>Gerar mensalidades</h2></div></div>
+        <div class="section-title compact"><div><span class="eyebrow">CobranÃ§a recorrente</span><h2>Gerar mensalidades</h2></div></div>
         <div class="form-grid">
-          <label>Competência<input id="monthly-competence" type="month"></label>
+          <label>CompetÃªncia<input id="monthly-competence" type="month"></label>
           <label>Valor por unidade (R$)<input id="monthly-amount" type="number" min="0" step="0.01"></label>
           <label>Vencimento<input id="monthly-due" type="date"></label>
         </div>
@@ -266,86 +266,87 @@
       </section>
 
       <section class="card">
-        <div class="section-title compact"><div><span class="eyebrow">Lançamento individual</span><h2>Nova obrigação</h2></div></div>
+        <div class="section-title compact"><div><span class="eyebrow">LanÃ§amento individual</span><h2>Nova obrigaÃ§Ã£o</h2></div></div>
         <div class="form-grid">
           <label>Unidade<select id="obligation-unit"></select></label>
-          <label>Tipo<select id="obligation-kind"><option value="monthly_contribution">Mensalidade</option><option value="extraordinary_fee">Taxa extraordinária</option><option value="installment">Parcelamento</option><option value="other">Outra obrigação</option></select></label>
-          <label class="wide">Descrição<input id="obligation-description" placeholder="Ex.: Taxa extraordinária — fachada"></label>
-          <label>Competência<input id="obligation-competence" type="month"></label>
+          <label>Tipo<select id="obligation-kind"><option value="monthly_contribution">Mensalidade</option><option value="extraordinary_fee">Taxa extraordinÃ¡ria</option><option value="installment">Parcelamento</option><option value="other">Outra obrigaÃ§Ã£o</option></select></label>
+          <label class="wide">DescriÃ§Ã£o<input id="obligation-description" placeholder="Ex.: Taxa extraordinÃ¡ria â€” fachada"></label>
+          <label>CompetÃªncia<input id="obligation-competence" type="month"></label>
           <label>Vencimento<input id="obligation-due" type="date"></label>
           <label>Valor (R$)<input id="obligation-amount" type="number" min="0" step="0.01"></label>
         </div>
-        <div class="actions"><button id="save-obligation" type="button">Registrar obrigação</button></div>
+        <div class="actions"><button id="save-obligation" type="button">Registrar obrigaÃ§Ã£o</button></div>
         <p id="obligation-feedback" class="feedback" role="status"></p>
       </section>
 
       <section class="card">
-        <div class="section-title compact"><h2>Obrigações registradas</h2><span class="muted">Pagamentos parciais permanecem visíveis</span></div>
-        <div id="obligation-list"><p class="muted">Nenhuma obrigação registrada.</p></div>
+        <div class="section-title compact"><h2>ObrigaÃ§Ãµes registradas</h2><span class="muted">Pagamentos parciais permanecem visÃ­veis</span></div>
+        <div id="obligation-list"><p class="muted">Nenhuma obrigaÃ§Ã£o registrada.</p></div>
       </section>
 
-      <section class="notice warning-notice"><strong>Regra crítica:</strong> parcelamento aberto, mensalidade pendente ou qualquer outra obrigação exigível impede a declaração de adimplência. Não existe botão para “forçar” uma unidade como adimplente.</section>
+      <section class="notice warning-notice"><strong>Regra crÃ­tica:</strong> parcelamento aberto, mensalidade pendente ou qualquer outra obrigaÃ§Ã£o exigÃ­vel impede a declaraÃ§Ã£o de adimplÃªncia. NÃ£o existe botÃ£o para â€œforÃ§arâ€ uma unidade como adimplente.</section>
     </section>
 
     <section class="view" id="view-residents">
       <section class="card intro">
         <span class="eyebrow">Consulta somente leitura</span>
         <h2>Acesso do morador</h2>
-        <p>Gere um pacote criptografado específico para cada unidade. O pacote não contém dados individuais das outras unidades.</p>
+        <p>Gere um pacote criptografado especÃ­fico para cada unidade. O pacote nÃ£o contÃ©m dados individuais das outras unidades.</p>
       </section>
       <section class="card">
-        <div class="section-title compact"><div><span class="eyebrow">Primeira ativação</span><h2>Gerar pacote da unidade</h2></div></div>
+        <div class="section-title compact"><div><span class="eyebrow">Primeira ativaÃ§Ã£o</span><h2>Gerar pacote da unidade</h2></div></div>
         <div class="form-grid">
           <label>Unidade<select id="resident-access-unit"></select></label>
         </div>
         <div class="actions"><button id="generate-resident-access" type="button">Gerar arquivo do morador</button></div>
-        <p>O download será um arquivo <code>.ccresident.json</code> criptografado. A chave abaixo aparece somente nesta sessão e deve ser enviada diretamente ao morador.</p>
-        <div class="resident-token-box"><strong>Chave de ativação</strong><code id="resident-access-token">—</code><button id="copy-resident-token" class="secondary" type="button">Copiar chave</button></div>
+        <p>O download serÃ¡ um arquivo <code>.ccresident.json</code> criptografado. A chave abaixo aparece somente nesta sessÃ£o e deve ser enviada diretamente ao morador.</p>
+        <div class="resident-token-box"><strong>Chave de ativaÃ§Ã£o</strong><code id="resident-access-token">â€”</code><button id="copy-resident-token" class="secondary" type="button">Copiar chave</button></div>
         <p id="resident-access-feedback" class="feedback" role="status"></p>
       </section>
-      <section class="notice warning-notice"><strong>Importante:</strong> a área do morador é offline-first e não sincroniza automaticamente. Quando houver novos fechamentos ou pagamentos, gere e envie um novo pacote da unidade. O morador atualiza os dados mantendo o mesmo telefone e PIN.</section>
+      <section class="notice warning-notice"><strong>Importante:</strong> a Ã¡rea do morador Ã© offline-first e nÃ£o sincroniza automaticamente. Quando houver novos fechamentos ou pagamentos, gere e envie um novo pacote da unidade. O morador atualiza os dados mantendo o mesmo telefone e PIN.</section>
     </section>
 
     <section class="view" id="view-compliance">
       <section class="card intro">
         <span class="eyebrow">Controle rigoroso</span>
-        <h2>Adimplência anual</h2>
-        <p>A declaração automática é calculada pelo livro de obrigações do Conta Certa. O exercício precisa conter as 12 mensalidades e não pode existir mensalidade, taxa ou parcelamento exigível em aberto.</p>
+        <h2>AdimplÃªncia anual</h2>
+        <p>A declaraÃ§Ã£o automÃ¡tica Ã© calculada pelo livro de obrigaÃ§Ãµes do Conta Certa. O exercÃ­cio precisa conter as 12 mensalidades e nÃ£o pode existir mensalidade, taxa ou parcelamento exigÃ­vel em aberto.</p>
       </section>
       <section class="card">
         <div class="form-grid">
-          <label>Ano de referência<select id="compliance-year"></select></label>
+          <label>Ano de referÃªncia<select id="compliance-year"></select></label>
           <label>Data de fechamento anual<input id="annual-closing-date" type="date"></label>
         </div>
         <div class="actions">
           <button id="save-closing-date" class="secondary" type="button">Salvar data de fechamento</button>
-          <button id="issue-eligible" type="button">Gerar declarações elegíveis</button>
+          <button id="issue-eligible" type="button">Gerar declaraÃ§Ãµes elegÃ­veis</button>
         </div>
         <p id="certificate-feedback" class="feedback" role="status"></p>
-        <div id="compliance-list" class="compliance-list"><p class="muted">Importe o histórico para avaliar as unidades.</p></div>
+        <div id="compliance-list" class="compliance-list"><p class="muted">Importe o histÃ³rico para avaliar as unidades.</p></div>
       </section>
 
       <section class="card">
-        <div class="section-title compact"><div><span class="eyebrow">Documentos emitidos</span><h2>Histórico de declarações</h2></div></div>
-        <div id="certificate-history"><p class="muted">Nenhuma declaração emitida.</p></div>
+        <div class="section-title compact"><div><span class="eyebrow">Documentos emitidos</span><h2>HistÃ³rico de declaraÃ§Ãµes</h2></div></div>
+        <div id="certificate-history"><p class="muted">Nenhuma declaraÃ§Ã£o emitida.</p></div>
       </section>
 
       <section class="card">
-        <div class="section-title compact"><div><span class="eyebrow">Conferência</span><h2>Validar arquivo recebido</h2></div></div>
-        <p>Selecione uma declaração registrada e o PDF recebido. O Conta Certa recalcula o SHA-256 do arquivo e compara com o hash preservado na emissão.</p>
+        <div class="section-title compact"><div><span class="eyebrow">ConferÃªncia</span><h2>Validar arquivo recebido</h2></div></div>
+        <p>Selecione uma declaraÃ§Ã£o registrada e o PDF recebido. O Conta Certa recalcula o SHA-256 do arquivo e compara com o hash preservado na emissÃ£o.</p>
         <div class="form-grid">
-          <label>Declaração<select id="validation-certificate"></select></label>
+          <label>DeclaraÃ§Ã£o<select id="validation-certificate"></select></label>
           <label>Arquivo PDF<input id="validation-file" type="file" accept="application/pdf,.pdf"></label>
         </div>
         <div class="actions"><button id="validate-certificate" type="button">Conferir integridade</button></div>
         <p id="validation-feedback" class="feedback" role="status"></p>
       </section>
 
-      <section class="notice"><strong>Integridade:</strong> não existe liberação manual de declaração. A emissão exige obrigações estruturadas, exercício completo e ausência de pendências; o histórico antigo, sozinho, não autoriza o documento. Cada PDF recebe ID, código de validação, QR Code, hash de conteúdo e hash do arquivo. Correções ocorrem por revogação e nova emissão.</section>
+      <section class="notice"><strong>Integridade:</strong> nÃ£o existe liberaÃ§Ã£o manual de declaraÃ§Ã£o. A emissÃ£o exige obrigaÃ§Ãµes estruturadas, exercÃ­cio completo e ausÃªncia de pendÃªncias; o histÃ³rico antigo, sozinho, nÃ£o autoriza o documento. Cada PDF recebe ID, cÃ³digo de validaÃ§Ã£o, QR Code, hash de conteÃºdo e hash do arquivo. CorreÃ§Ãµes ocorrem por revogaÃ§Ã£o e nova emissÃ£o.</section>
     </section>
   </main>
 
-  <footer>Conta Certa • v0.10.0 — perfil do morador e pagamento com data informada</footer>
-  <script type="module" src="src/app.js?v=0100"></script>
+  <footer>Conta Certa â€¢ v0.11.0 - PostgreSQL e sincronizacao automatica</footer>
+  <script type="module" src="src/app.js?v=0110"></script>
 </body>
 </html>
+

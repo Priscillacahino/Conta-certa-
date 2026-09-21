@@ -1,4 +1,4 @@
-let deferredPrompt = null;
+﻿let deferredPrompt = null;
 
 const $ = selector => document.querySelector(selector);
 const installButton = $('#install-button');
@@ -16,7 +16,7 @@ const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
 function showInstalled() {
   installButton.hidden = true;
   alreadyInstalled.hidden = false;
-  feedback.textContent = 'O aplicativo já está instalado neste aparelho.';
+  feedback.textContent = 'O aplicativo jÃ¡ estÃ¡ instalado neste aparelho.';
 }
 
 if ('serviceWorker' in navigator) {
@@ -31,12 +31,12 @@ if (isStandalone) {
   installButton.textContent = 'Como instalar no iPhone';
   installButton.disabled = false;
   iosHelp.hidden = false;
-  feedback.textContent = 'No iPhone, a instalação é feita pelo menu Compartilhar do Safari.';
+  feedback.textContent = 'No iPhone, a instalaÃ§Ã£o Ã© feita pelo menu Compartilhar do Safari.';
 } else {
   installButton.textContent = 'Instalar Conta Certa';
   installButton.disabled = true;
   if (isAndroid) androidHelp.hidden = false;
-  feedback.textContent = 'Aguardando o navegador disponibilizar a instalação…';
+  feedback.textContent = 'Aguardando o navegador disponibilizar a instalaÃ§Ã£oâ€¦';
 }
 
 window.addEventListener('beforeinstallprompt', event => {
@@ -62,8 +62,8 @@ installButton.addEventListener('click', async () => {
 
   if (!deferredPrompt) {
     feedback.textContent = isAndroid
-      ? 'Abra o menu do Chrome e escolha “Instalar app” ou “Adicionar à tela inicial”.'
-      : 'Use a opção de instalação disponível no menu do seu navegador.';
+      ? 'Abra o menu do Chrome e escolha â€œInstalar appâ€ ou â€œAdicionar Ã  tela inicialâ€.'
+      : 'Use a opÃ§Ã£o de instalaÃ§Ã£o disponÃ­vel no menu do seu navegador.';
     if (isAndroid) androidHelp.hidden = false;
     return;
   }
@@ -75,23 +75,24 @@ installButton.addEventListener('click', async () => {
   const choice = await prompt.userChoice;
 
   if (choice.outcome === 'accepted') {
-    feedback.textContent = 'Instalação confirmada. O Conta Certa aparecerá na tela inicial.';
+    feedback.textContent = 'InstalaÃ§Ã£o confirmada. O Conta Certa aparecerÃ¡ na tela inicial.';
   } else {
-    feedback.textContent = 'Instalação cancelada. Você pode tentar novamente pelo menu do navegador.';
+    feedback.textContent = 'InstalaÃ§Ã£o cancelada. VocÃª pode tentar novamente pelo menu do navegador.';
     installButton.disabled = false;
   }
 });
 
 openApp.addEventListener('click', () => {
-  window.location.href = './?v=0100';
+  window.location.href = './?v=0110';
 });
 
 setTimeout(() => {
   if (!isStandalone && !isIOS && !deferredPrompt) {
     installButton.disabled = false;
-    installButton.textContent = 'Instalar / ver instruções';
+    installButton.textContent = 'Instalar / ver instruÃ§Ãµes';
     feedback.textContent = isAndroid
-      ? 'Se o botão nativo não apareceu, use o menu do Chrome para instalar.'
-      : 'Use a opção de instalação do seu navegador.';
+      ? 'Se o botÃ£o nativo nÃ£o apareceu, use o menu do Chrome para instalar.'
+      : 'Use a opÃ§Ã£o de instalaÃ§Ã£o do seu navegador.';
   }
 }, 1800);
+

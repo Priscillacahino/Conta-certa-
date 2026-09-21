@@ -1,3 +1,5 @@
+﻿import { captureApiBaseUrlFromLocation } from './sync-client.js';
+captureApiBaseUrlFromLocation();
 let deferredPrompt = null;
 const button = document.querySelector('#resident-install-button');
 const feedback = document.querySelector('#resident-install-feedback');
@@ -14,7 +16,7 @@ if ('serviceWorker' in navigator) {
 }
 
 if (isStandalone) {
-  button.textContent = 'Aplicativo já instalado';
+  button.textContent = 'Aplicativo jÃ¡ instalado';
   button.disabled = true;
   feedback.textContent = 'Abra o Conta Certa pela tela inicial.';
 } else if (isIOS) {
@@ -23,10 +25,10 @@ if (isStandalone) {
   iosHelp.hidden = false;
   feedback.textContent = 'No iPhone, use o menu Compartilhar do Safari.';
 } else {
-  button.textContent = 'Instalar Conta Certa — Morador';
+  button.textContent = 'Instalar Conta Certa â€” Morador';
   button.disabled = true;
   if (isAndroid) androidHelp.hidden = false;
-  feedback.textContent = 'Aguardando o navegador disponibilizar a instalação…';
+  feedback.textContent = 'Aguardando o navegador disponibilizar a instalaÃ§Ã£oâ€¦';
 }
 
 window.addEventListener('beforeinstallprompt', event => {
@@ -40,13 +42,13 @@ window.addEventListener('appinstalled', () => {
   deferredPrompt = null;
   button.textContent = 'Instalado';
   button.disabled = true;
-  feedback.textContent = 'Instalação concluída.';
+  feedback.textContent = 'InstalaÃ§Ã£o concluÃ­da.';
 });
 
 button.addEventListener('click', async () => {
   if (isIOS) { iosHelp.hidden = false; iosHelp.scrollIntoView({ behavior:'smooth', block:'center' }); return; }
   if (!deferredPrompt) {
-    feedback.textContent = isAndroid ? 'Abra o menu do Chrome e escolha “Instalar app” ou “Adicionar à tela inicial”.' : 'Use a opção de instalação do navegador.';
+    feedback.textContent = isAndroid ? 'Abra o menu do Chrome e escolha â€œInstalar appâ€ ou â€œAdicionar Ã  tela inicialâ€.' : 'Use a opÃ§Ã£o de instalaÃ§Ã£o do navegador.';
     return;
   }
   const prompt = deferredPrompt;
@@ -54,15 +56,16 @@ button.addEventListener('click', async () => {
   button.disabled = true;
   await prompt.prompt();
   const choice = await prompt.userChoice;
-  feedback.textContent = choice.outcome === 'accepted' ? 'Instalação confirmada.' : 'Instalação cancelada.';
+  feedback.textContent = choice.outcome === 'accepted' ? 'InstalaÃ§Ã£o confirmada.' : 'InstalaÃ§Ã£o cancelada.';
   if (choice.outcome !== 'accepted') button.disabled = false;
 });
 
-openApp.addEventListener('click', () => { window.location.href = './morador.html?v=0100'; });
+openApp.addEventListener('click', () => { window.location.href = './morador.html?v=0110'; });
 
 setTimeout(() => {
   if (!isStandalone && !isIOS && !deferredPrompt) {
     button.disabled = false;
-    button.textContent = 'Instalar / ver instruções';
+    button.textContent = 'Instalar / ver instruÃ§Ãµes';
   }
 }, 1800);
+
