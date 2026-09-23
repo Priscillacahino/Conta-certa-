@@ -1,4 +1,4 @@
-﻿const CACHE = 'conta-certa-v0.11.0';
+const CACHE = 'conta-certa-v0.11.1';
 const ASSETS = [
   './','./index.html','./instalar.html','./morador.html','./instalar-morador.html','./sincronizacao.html','./styles.css','./resident.css','./manifest.webmanifest','./manifest-morador.webmanifest','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-maskable-512.png','./icons/apple-touch-icon.png','./assets/logo-conta-certa.png',
   './src/app.js','./src/install.js','./src/sync-client.js','./src/sync-settings.js','./src/resident.js','./src/resident-access.js','./src/resident-store.js','./src/install-resident.js','./src/db.js','./src/finance.js','./src/projections.js','./src/compliance.js','./src/migration.js','./src/obligations.js','./src/certificates.js','./src/certificate-pdf.js','./src/brand-data.js','./src/qr.js','./src/security.js','./src/private-profile.js','./src/backup.js','./src/closing.js','./src/statement-pdf.js','./src/sanitize.js'
@@ -11,7 +11,9 @@ self.addEventListener('fetch', event => {
   if (url.origin !== self.location.origin) return;
   if (event.request.mode === 'navigate') {
     const residentNavigation = url.pathname.endsWith('/morador.html') || url.pathname.endsWith('/instalar-morador.html');
-    event.respondWith(fetch(event.request).catch(() => caches.match(residentNavigation ? './morador.html' : './index.html')));
+    const syncNavigation = url.pathname.endsWith('/sincronizacao.html');
+    const fallback = residentNavigation ? './morador.html' : syncNavigation ? './sincronizacao.html' : './index.html';
+    event.respondWith(fetch(event.request).catch(() => caches.match(fallback)));
     return;
   }
   const relative = './' + url.pathname.replace(self.registration.scope.replace(url.origin, '').replace(/^\//, ''), '').replace(/^\//, '');

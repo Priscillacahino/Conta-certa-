@@ -4,6 +4,8 @@ const API_KEY = 'conta-certa-api-base-url';
 const ADMIN_TOKEN_KEY = 'conta-certa-admin-api-token';
 const ADMIN_VERSION_KEY = 'conta-certa-admin-sync-version';
 const ADMIN_HASH_KEY = 'conta-certa-admin-last-sync-hash';
+const ADMIN_LAST_SYNC_KEY = 'conta-certa-admin-last-sync-at';
+const RESIDENT_TOKEN_KEY = 'conta-certa-resident-api-token';
 
 function normalizeApiUrl(value) {
   const text = String(value ?? '').trim().replace(/\/+$/, '');
@@ -13,6 +15,10 @@ function normalizeApiUrl(value) {
     throw new Error('API_HTTPS_OBRIGATORIO');
   }
   return url.toString().replace(/\/+$/, '');
+}
+
+function dispatchSync(detail) {
+  window.dispatchEvent(new CustomEvent('conta-certa-sync', { detail }));
 }
 
 export function captureApiBaseUrlFromLocation() {
@@ -36,6 +42,16 @@ export function setApiBaseUrl(value) {
   const normalized = normalizeApiUrl(value);
   localStorage.setItem(API_KEY, normalized);
   return normalized;
+}
+
+export function getAdminSyncStatus() {
+  return Object.freeze({
+    apiConfigured: Boolean(getApiBaseUrl()),
+    authenticated: Boolean(sessionStorage.getItem(ADMIN_TOKEN_KEY)),
+    online: navigator.onLine,
+    syncVersion: Number(localStorage.getItem(ADMIN_VERSION_KEY) || 0),
+    lastSyncAt: localStorage.getItem(ADMIN_LAST_SYNC_KEY) || '',
+  });
 }
 
 async function api(path, { method='GET', token='', body=null } = {}) {
@@ -70,11 +86,13 @@ export async function adminLogin(username, password) {
     body:{ username, password },
   });
   sessionStorage.setItem(ADMIN_TOKEN_KEY, data.token);
+  dispatchSync({ authenticated:true });
   return data;
 }
 
 export function clearAdminRemoteSession() {
   sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+  dispatchSync({ authenticated:false, reason:'login-required' });
 }
 
 export async function issueResidentActivation({ residentialId, unitId, phone }) {
@@ -99,15 +117,16 @@ export async function pullAdminNow({ residentialId='' } = {}) {
   const hash = await sha256Text(JSON.stringify(data.snapshot));
   localStorage.setItem(ADMIN_VERSION_KEY, String(data.syncVersion || 0));
   localStorage.setItem(ADMIN_HASH_KEY, hash);
-  localStorage.setItem('conta-certa-admin-last-sync-at', new Date().toISOString());
-  window.dispatchEvent(new CustomEvent('conta-certa-sync', { detail:{ ok:true, pulled:true, syncVersion:data.syncVersion } }));
+  localStorage.setItem(ADMIN_LAST_SYNC_KEY, new Date().toISOString());
+  dispatchSync({ ok:true, pulled:true, syncVersion:data.syncVersion });
   return data;
 }
 
 export async function syncAdminNow({ force=false } = {}) {
   const token = sessionStorage.getItem(ADMIN_TOKEN_KEY) || '';
-  if (!getApiBaseUrl() || !token) return { skipped:true, reason:'not-configured' };
-  const snapshot = await exportDatabaseSnapshot('0.11.0');
+  if (!getApiBaseUrl()) return { skipped:true, reason:'not-configured' };
+  if (!token) return { skipped:true, reason:'login-required' };
+  const snapshot = await exportDatabaseSnapshot('0.11.1');
   const serialized = JSON.stringify(snapshot);
   const hash = await sha256Text(serialized);
   if (!force && hash === localStorage.getItem(ADMIN_HASH_KEY)) {
@@ -119,8 +138,8 @@ export async function syncAdminNow({ force=false } = {}) {
   });
   localStorage.setItem(ADMIN_VERSION_KEY, String(data.syncVersion || 0));
   localStorage.setItem(ADMIN_HASH_KEY, hash);
-  localStorage.setItem('conta-certa-admin-last-sync-at', new Date().toISOString());
-  window.dispatchEvent(new CustomEvent('conta-certa-sync', { detail:{ ok:true, syncVersion:data.syncVersion } }));
+  localStorage.setItem(ADMIN_LAST_SYNC_KEY, new Date().toISOString());
+  dispatchSync({ ok:true, syncVersion:data.syncVersion });
   return data;
 }
 
@@ -128,12 +147,34 @@ let timer = null;
 let syncing = false;
 
 async function safeSync() {
-  if (syncing || !navigator.onLine) return;
+  if (syncing) return;
+  if (!navigator.onLine) {
+    dispatchSync({ offline:true });
+    return;
+  }
+  const state = getAdminSyncStatus();
+  if (!state.apiConfigured) {
+    dispatchSync({ skipped:true, reason:'not-configured' });
+    return;
+  }
+  if (!state.authenticated) {
+    dispatchSync({ skipped:true, reason:'login-required' });
+    return;
+  }
   syncing = true;
-  try { await syncAdminNow(); }
-  catch (error) {
-    window.dispatchEvent(new CustomEvent('conta-certa-sync', { detail:{ ok:false, error:error.message } }));
-  } finally { syncing = false; }
+  dispatchSync({ syncing:true });
+  try {
+    const result = await syncAdminNow();
+    if (result?.skipped) dispatchSync({ ok:true, ...result });
+  } catch (error) {
+    dispatchSync({
+      ok:false,
+      error:error.message,
+      conflict:error.status === 409 || error.message === 'VERSAO_DESATUALIZADA',
+    });
+  } finally {
+    syncing = false;
+  }
 }
 
 export function startAdminAutoSync({ intervalMs=45000 } = {}) {
@@ -148,16 +189,42 @@ export function startAdminAutoSync({ intervalMs=45000 } = {}) {
   setTimeout(safeSync, 1200);
 }
 
+function storeResidentToken(data) {
+  if (data?.token) sessionStorage.setItem(RESIDENT_TOKEN_KEY, data.token);
+}
+
+export function clearResidentRemoteSession() {
+  sessionStorage.removeItem(RESIDENT_TOKEN_KEY);
+}
+
 export async function activateResidentRemote({ phone, activationCode, pin }) {
   const data = await api('/api/auth/resident/activate/', {
     method:'POST', body:{ phone, activationCode, pin },
   });
+  storeResidentToken(data);
   return data.snapshot;
 }
 
-export async function refreshResidentRemote({ phone, pin }) {
+export async function fetchResidentSnapshotRemote() {
+  const token = sessionStorage.getItem(RESIDENT_TOKEN_KEY) || '';
+  if (!token) throw new Error('SESSAO_REMOTA_MORADOR_AUSENTE');
+  return api('/api/resident/snapshot/', { token });
+}
+
+export async function refreshResidentRemote({ phone='', pin='' } = {}) {
+  const existing = sessionStorage.getItem(RESIDENT_TOKEN_KEY) || '';
+  if (existing) {
+    try {
+      return await fetchResidentSnapshotRemote();
+    } catch (error) {
+      if (error.status !== 401) throw error;
+      clearResidentRemoteSession();
+    }
+  }
+  if (!phone || !pin) throw new Error('SESSAO_REMOTA_MORADOR_AUSENTE');
   const data = await api('/api/auth/resident/login/', {
     method:'POST', body:{ phone, pin },
   });
+  storeResidentToken(data);
   return data.snapshot;
 }

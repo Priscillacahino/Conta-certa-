@@ -34,7 +34,7 @@ def _pin(value):
 def health(request):
     if request.method != "GET":
         return _json_error("METODO_INVALIDO", 405)
-    return JsonResponse({"ok": True, "service": "conta-certa-api", "version": "0.11.0"})
+    return JsonResponse({"ok": True, "service": "conta-certa-api", "version": "0.11.1"})
 
 @csrf_exempt
 def admin_login(request):

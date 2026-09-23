@@ -1,7 +1,7 @@
-﻿import { decryptResidentPackage, createResidentVault, openResidentVault, residentOutstandingCents, normalizePhoneDigits, validateResidentPin } from './resident-access.js';
+import { decryptResidentPackage, createResidentVault, openResidentVault, residentOutstandingCents, normalizePhoneDigits, validateResidentPin } from './resident-access.js';
 import { getResidentVault, setResidentVault, clearResidentAccess } from './resident-store.js';
 import { escapeHtml } from './sanitize.js';
-import { captureApiBaseUrlFromLocation, activateResidentRemote, refreshResidentRemote, getApiBaseUrl } from './sync-client.js';
+import { captureApiBaseUrlFromLocation, activateResidentRemote, refreshResidentRemote, getApiBaseUrl, clearResidentRemoteSession } from './sync-client.js';
 
 const $ = selector => document.querySelector(selector);
 captureApiBaseUrlFromLocation();
@@ -15,21 +15,24 @@ let unlockedPhone = '';
 let unlockedPin = '';
 let hiddenAt = null;
 const BACKGROUND_GRACE_MS = 2 * 60 * 1000;
+const RESIDENT_REFRESH_INTERVAL_MS = 2 * 60 * 1000;
+let residentRefreshing = false;
+let residentAutoRefreshTimer = null;
 
 function formatDate(value) {
   const text = String(value ?? '').slice(0, 10);
   const match = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  return match ? `${match[3]}/${match[2]}/${match[1]}` : text || 'â€”';
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : text || '—';
 }
 
 function formatDateTime(value) {
-  if (!value) return 'â€”';
+  if (!value) return '—';
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString('pt-BR');
 }
 
 function kindLabel(kind) {
-  return ({ monthly_contribution:'Mensalidade', extraordinary_fee:'Taxa extraordinÃ¡ria', installment:'Parcelamento', other:'Outra obrigaÃ§Ã£o' })[kind] ?? kind;
+  return ({ monthly_contribution:'Mensalidade', extraordinary_fee:'Taxa extraordinária', installment:'Parcelamento', other:'Outra obrigação' })[kind] ?? kind;
 }
 
 function statusLabel(status) {
@@ -71,9 +74,11 @@ function unlockUi() {
   document.body.classList.remove('resident-privacy-screen');
   $('#resident-gate').hidden = true;
   renderAll();
+  startResidentAutoRefresh();
 }
 
 function lockUi(message = '') {
+  stopResidentAutoRefresh();
   residentPayload = null;
   unlockedPhone = '';
   unlockedPin = '';
@@ -96,23 +101,23 @@ function renderHome() {
   const latest = closings.at(-1) ?? null;
   const outstanding = residentOutstandingCents(residentPayload);
   $('#resident-header-unit').textContent = residentPayload.unit.label;
-  $('#resident-welcome').textContent = residentPayload.unit.responsibleName ? `OlÃ¡, ${residentPayload.unit.responsibleName}` : residentPayload.unit.label;
-  $('#resident-residential-name').textContent = `${residentPayload.residential.name} â€¢ ${residentPayload.unit.label}`;
+  $('#resident-welcome').textContent = residentPayload.unit.responsibleName ? `Olá, ${residentPayload.unit.responsibleName}` : residentPayload.unit.label;
+  $('#resident-residential-name').textContent = `${residentPayload.residential.name} • ${residentPayload.unit.label}`;
   $('#resident-updated-at').textContent = `Dados gerados pelo administrador em ${formatDateTime(residentPayload.generatedAt)}.`;
-  $('#resident-latest-balance').textContent = latest ? money(latest.closingBalanceCents) : 'â€”';
-  $('#resident-latest-period').textContent = latest ? `CompetÃªncia ${latest.competence}` : 'Sem competÃªncia fechada';
+  $('#resident-latest-balance').textContent = latest ? money(latest.closingBalanceCents) : '—';
+  $('#resident-latest-period').textContent = latest ? `Competência ${latest.competence}` : 'Sem competência fechada';
   $('#resident-outstanding').textContent = money(outstanding);
-  $('#resident-status').textContent = outstanding > 0 ? 'HÃ¡ pendÃªncia' : 'Sem pendÃªncia no pacote';
+  $('#resident-status').textContent = outstanding > 0 ? 'Há pendência' : 'Sem pendência no pacote';
   $('#resident-status').className = outstanding > 0 ? 'resident-status-pending' : 'resident-status-ok';
 }
 
 function renderObligations() {
   const box = $('#resident-obligations');
   const obligations = [...(residentPayload.obligations ?? [])].sort((a,b) => String(b.dueDate).localeCompare(String(a.dueDate)));
-  if (!obligations.length) { box.innerHTML = '<p class="muted">Nenhuma obrigaÃ§Ã£o disponibilizada para esta unidade.</p>'; return; }
+  if (!obligations.length) { box.innerHTML = '<p class="muted">Nenhuma obrigação disponibilizada para esta unidade.</p>'; return; }
   box.innerHTML = `<div class="resident-list">${obligations.map(item => {
     const outstanding = item.status === 'cancelled' ? 0 : Math.max(0, (item.amountCents || 0) - (item.paidCents || 0));
-    return `<article class="resident-row"><div><strong>${escapeHtml(kindLabel(item.kind))}</strong><span>${escapeHtml(item.description || '')}</span><small>Vencimento: ${escapeHtml(formatDate(item.dueDate))} â€¢ ${escapeHtml(statusLabel(item.status))}${item.paidCents ? ` â€¢ Pago: ${money(item.paidCents)}` : ''}</small></div><div class="amount"><strong>${money(item.amountCents)}</strong>${outstanding ? `<small>Falta ${money(outstanding)}</small>` : ''}</div></article>`;
+    return `<article class="resident-row"><div><strong>${escapeHtml(kindLabel(item.kind))}</strong><span>${escapeHtml(item.description || '')}</span><small>Vencimento: ${escapeHtml(formatDate(item.dueDate))} • ${escapeHtml(statusLabel(item.status))}${item.paidCents ? ` • Pago: ${money(item.paidCents)}` : ''}</small></div><div class="amount"><strong>${money(item.amountCents)}</strong>${outstanding ? `<small>Falta ${money(outstanding)}</small>` : ''}</div></article>`;
   }).join('')}</div>`;
 }
 
@@ -120,7 +125,7 @@ function renderClosingSelector() {
   const select = $('#resident-closing-select');
   const closings = [...(residentPayload.closings ?? [])].sort((a,b) => String(b.competence).localeCompare(String(a.competence)));
   if (!closings.length) {
-    select.innerHTML = '<option value="">Sem competÃªncias fechadas</option>';
+    select.innerHTML = '<option value="">Sem competências fechadas</option>';
     renderClosing(null);
     return;
   }
@@ -134,14 +139,14 @@ function renderClosing(closing) {
   for (const [id,value] of [
     ['#resident-opening', closing?.openingBalanceCents], ['#resident-revenue', closing?.revenueCents],
     ['#resident-expense', closing?.expenseCents], ['#resident-result', closing?.resultCents], ['#resident-closing-balance', closing?.closingBalanceCents]
-  ]) $(id).textContent = closing ? money(value) : 'â€”';
+  ]) $(id).textContent = closing ? money(value) : '—';
   const box = $('#resident-expenses');
-  if (!closing) { box.innerHTML = '<p class="muted">Nenhuma competÃªncia fechada.</p>'; return; }
+  if (!closing) { box.innerHTML = '<p class="muted">Nenhuma competência fechada.</p>'; return; }
   const expenses = closing.expenses ?? [];
   if (!expenses.length) {
     box.innerHTML = closing.source === 'historical_import'
-      ? '<p class="muted">A competÃªncia histÃ³rica possui os totais preservados, mas a discriminaÃ§Ã£o dos itens nÃ£o estava disponÃ­vel no banco operacional.</p>'
-      : '<p class="muted">Nenhuma despesa discriminada nesta competÃªncia.</p>';
+      ? '<p class="muted">A competência histórica possui os totais preservados, mas a discriminação dos itens não estava disponível no banco operacional.</p>'
+      : '<p class="muted">Nenhuma despesa discriminada nesta competência.</p>';
     return;
   }
   box.innerHTML = `<div class="resident-list">${expenses.map(item => `<article class="resident-row"><div><strong>${escapeHtml(item.category || 'Despesa')}</strong><span>${escapeHtml(item.description || '')}</span><small>${escapeHtml(formatDate(item.date))}</small></div><div class="amount"><strong>${money(item.amountCents)}</strong></div></article>`).join('')}</div>`;
@@ -165,8 +170,8 @@ function downloadCertificate(certificateId) {
 function renderDocuments() {
   const box = $('#resident-documents');
   const docs = [...(residentPayload.certificates ?? [])].sort((a,b) => Number(b.year)-Number(a.year));
-  if (!docs.length) { box.innerHTML = '<p class="muted">Nenhuma declaraÃ§Ã£o disponibilizada para esta unidade.</p>'; return; }
-  box.innerHTML = `<div class="resident-list">${docs.map(item => `<article class="resident-row"><div><strong>DeclaraÃ§Ã£o ${escapeHtml(String(item.year))}</strong><span>${escapeHtml(item.certificateId)}</span><small>${escapeHtml(item.status === 'VALID' ? 'VÃ¡lida' : 'Revogada')} â€¢ emitida em ${escapeHtml(formatDate(item.issuedAt))}</small></div><div class="amount">${item.pdfBase64 ? `<button type="button" class="secondary resident-doc-button" data-certificate="${escapeHtml(item.certificateId)}">Baixar PDF</button>` : ''}</div></article>`).join('')}</div>`;
+  if (!docs.length) { box.innerHTML = '<p class="muted">Nenhuma declaração disponibilizada para esta unidade.</p>'; return; }
+  box.innerHTML = `<div class="resident-list">${docs.map(item => `<article class="resident-row"><div><strong>Declaração ${escapeHtml(String(item.year))}</strong><span>${escapeHtml(item.certificateId)}</span><small>${escapeHtml(item.status === 'VALID' ? 'Válida' : 'Revogada')} • emitida em ${escapeHtml(formatDate(item.issuedAt))}</small></div><div class="amount">${item.pdfBase64 ? `<button type="button" class="secondary resident-doc-button" data-certificate="${escapeHtml(item.certificateId)}">Baixar PDF</button>` : ''}</div></article>`).join('')}</div>`;
   document.querySelectorAll('[data-certificate]').forEach(button => button.addEventListener('click', () => downloadCertificate(button.dataset.certificate)));
 }
 
@@ -176,6 +181,52 @@ function renderAll() {
   renderObligations();
   renderClosingSelector();
   renderDocuments();
+}
+
+async function refreshResidentFromServer({ silent = true } = {}) {
+  if (residentRefreshing || !residentPayload || !unlockedPhone || !unlockedPin) return false;
+  if (!getApiBaseUrl() || !navigator.onLine) {
+    if (!silent && $('#resident-online-feedback')) {
+      $('#resident-online-feedback').textContent = getApiBaseUrl()
+        ? 'Sem conexão com a internet. Os últimos dados permanecem disponíveis no aparelho.'
+        : 'Servidor online ainda não configurado neste aparelho.';
+    }
+    return false;
+  }
+  residentRefreshing = true;
+  try {
+    const fresh = await refreshResidentRemote({ phone: unlockedPhone, pin: unlockedPin });
+    if (String(fresh?.unit?.id ?? '') !== String(residentPayload?.unit?.id ?? '')) {
+      throw new Error('ATUALIZACAO_DE_OUTRA_UNIDADE');
+    }
+    const freshVault = await createResidentVault(fresh, unlockedPhone, unlockedPin);
+    await setResidentVault(freshVault);
+    residentPayload = fresh;
+    renderAll();
+    if (!silent && $('#resident-online-feedback')) {
+      $('#resident-online-feedback').textContent = 'Dados atualizados com o servidor.';
+    }
+    return true;
+  } catch (error) {
+    if (!silent && $('#resident-online-feedback')) {
+      $('#resident-online-feedback').textContent = `Atualização online não concluída: ${error.message}`;
+    }
+    return false;
+  } finally {
+    residentRefreshing = false;
+  }
+}
+
+function stopResidentAutoRefresh() {
+  if (residentAutoRefreshTimer) clearInterval(residentAutoRefreshTimer);
+  residentAutoRefreshTimer = null;
+}
+
+function startResidentAutoRefresh() {
+  stopResidentAutoRefresh();
+  residentAutoRefreshTimer = setInterval(() => {
+    if (!document.hidden) refreshResidentFromServer({ silent:true });
+  }, RESIDENT_REFRESH_INTERVAL_MS);
 }
 
 async function activateResident(event) {
@@ -234,19 +285,11 @@ async function loginResident(event) {
     resetThrottle();
     $('#resident-login-feedback').textContent = '';
     unlockUi();
-    if (getApiBaseUrl() && navigator.onLine) {
-      try {
-        const fresh = await refreshResidentRemote({ phone, pin });
-        const freshVault = await createResidentVault(fresh, phone, pin);
-        await setResidentVault(freshVault);
-        residentPayload = fresh;
-        renderAll();
-      } catch {}
-    }
+    await refreshResidentFromServer({ silent:true });
   } catch (error) {
     const state = recordFailure();
     $('#resident-login-feedback').textContent = state.blocked
-      ? 'Acesso temporariamente bloqueado apÃ³s 5 tentativas incorretas. Tente novamente em 5 minutos.'
+      ? 'Acesso temporariamente bloqueado após 5 tentativas incorretas. Tente novamente em 5 minutos.'
       : `Telefone ou senha incorretos. Tentativa ${state.failedAttempts} de ${MAX_ATTEMPTS}.`;
   }
 }
@@ -273,13 +316,14 @@ async function updateResidentData(event) {
   } catch (error) {
     $('#resident-update-feedback').textContent = error.message === 'PACOTE_DE_OUTRA_UNIDADE'
       ? 'O arquivo pertence a outra unidade.'
-      : `AtualizaÃ§Ã£o nÃ£o concluÃ­da: ${error.message}`;
+      : `Atualização não concluída: ${error.message}`;
   }
 }
 
 async function clearAccess() {
-  if (!window.confirm('Remover o acesso do morador e os dados locais deste aparelho? Para usar novamente serÃ¡ necessÃ¡ria uma nova ativaÃ§Ã£o.')) return;
+  if (!window.confirm('Remover o acesso do morador e os dados locais deste aparelho? Para usar novamente será necessária uma nova ativação.')) return;
   await clearResidentAccess();
+  clearResidentRemoteSession();
   resetThrottle();
   residentPayload = null;
   unlockedPhone = '';
@@ -294,6 +338,9 @@ async function init() {
   $('#resident-update-form').addEventListener('submit', updateResidentData);
   $('#resident-clear-access').addEventListener('click', clearAccess);
   $('#resident-lock').addEventListener('click', () => lockUi('Acesso bloqueado.'));
+  $('#resident-refresh-online')?.addEventListener('click', () => refreshResidentFromServer({ silent:false }));
+  window.addEventListener('online', () => refreshResidentFromServer({ silent:true }));
+  window.addEventListener('focus', () => refreshResidentFromServer({ silent:true }));
   $('#resident-closing-select').addEventListener('change', () => renderClosing((residentPayload?.closings ?? []).find(item => item.competence === $('#resident-closing-select').value) ?? null));
 
   document.addEventListener('visibilitychange', () => {
@@ -302,7 +349,8 @@ async function init() {
       document.body.classList.add('resident-privacy-screen');
     } else {
       document.body.classList.remove('resident-privacy-screen');
-      if (hiddenAt && Date.now() - hiddenAt >= BACKGROUND_GRACE_MS && residentPayload) lockUi('Aplicativo bloqueado apÃ³s ficar em segundo plano.');
+      if (hiddenAt && Date.now() - hiddenAt >= BACKGROUND_GRACE_MS && residentPayload) lockUi('Aplicativo bloqueado após ficar em segundo plano.');
+      else if (residentPayload) refreshResidentFromServer({ silent:true });
       hiddenAt = null;
     }
   });

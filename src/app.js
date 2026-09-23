@@ -1,4 +1,4 @@
-﻿import { evaluateProject } from './projections.js';
+import { evaluateProject } from './projections.js';
 import {
   getSetting, setSetting, saveProjection, listProjections,
   replaceImportedData, getImportMeta, getResidential, listUnits, listPeriods,
@@ -21,7 +21,7 @@ import {
   applyPayment, outstandingCents, cancelObligation, paymentTimestampFromDate,
 } from './obligations.js';
 import { buildResidentPayload, createActivationToken, encryptResidentPayload } from './resident-access.js';
-import { startAdminAutoSync } from './sync-client.js';
+import { startAdminAutoSync, getAdminSyncStatus } from './sync-client.js';
 
 const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const money = cents => brl.format((cents ?? 0) / 100);
@@ -45,7 +45,62 @@ let movements = [];
 let monthClosings = [];
 
 function normalDocumentTitle() {
-  return residentialData?.name ? `Conta Certa â€” ${residentialData.name}` : 'Conta Certa';
+  return residentialData?.name ? `Conta Certa — ${residentialData.name}` : 'Conta Certa';
+}
+
+function renderAdminSyncStatus(detail = {}) {
+  const badge = $('#sync-status-badge');
+  const description = $('#sync-status-detail');
+  if (!badge || !description) return;
+  const state = getAdminSyncStatus();
+  let label = 'Local';
+  let className = 'status-badge neutral';
+  let text = 'Servidor não configurado';
+
+  if (!navigator.onLine || detail.offline) {
+    label = 'Offline';
+    className = 'status-badge attention';
+    text = 'Alterações ficam salvas neste aparelho';
+  } else if (!state.apiConfigured || detail.reason === 'not-configured') {
+    label = 'Local';
+    text = 'Servidor não configurado';
+  } else if (!state.authenticated || detail.reason === 'login-required') {
+    label = 'Login necessário';
+    className = 'status-badge attention';
+    text = 'Abra Sincronização para autenticar';
+  } else if (detail.syncing) {
+    label = 'Sincronizando';
+    className = 'status-badge attention';
+    text = 'Enviando alterações ao servidor';
+  } else if (detail.conflict) {
+    label = 'Conflito';
+    className = 'status-badge attention';
+    text = 'Servidor possui uma versão mais nova';
+  } else if (detail.ok === false) {
+    label = 'Erro de sync';
+    className = 'status-badge attention';
+    text = detail.error || 'Não foi possível sincronizar';
+  } else if (detail.ok || state.lastSyncAt) {
+    label = 'Sincronizado';
+    className = 'status-badge ok';
+    const when = state.lastSyncAt ? new Date(state.lastSyncAt).toLocaleString('pt-BR') : '';
+    text = when ? `Última sincronização: ${when}` : 'Dados enviados ao servidor';
+  } else {
+    label = 'Conectado';
+    className = 'status-badge neutral';
+    text = 'Aguardando primeira sincronização';
+  }
+
+  badge.textContent = label;
+  badge.className = className;
+  description.textContent = text;
+}
+
+function setupAdminSyncStatus() {
+  window.addEventListener('conta-certa-sync', event => renderAdminSyncStatus(event.detail ?? {}));
+  window.addEventListener('online', () => renderAdminSyncStatus({}));
+  window.addEventListener('offline', () => renderAdminSyncStatus({ offline:true }));
+  renderAdminSyncStatus({});
 }
 
 function hideSensitiveSnapshot() {
@@ -55,23 +110,23 @@ function hideSensitiveSnapshot() {
 
 function showSensitiveSnapshot() {
   if (unlockedUntil) document.body.classList.remove('privacy-screen');
-  document.title = unlockedUntil ? normalDocumentTitle() : 'Conta Certa â€” Bloqueado';
+  document.title = unlockedUntil ? normalDocumentTitle() : 'Conta Certa — Bloqueado';
 }
 
 function updateSecurityDeadline() {
   if (!unlockedUntil) return;
   unlockedUntil = nextSessionDeadline(Date.now(), SECURITY_DEFAULTS.sessionTtlMs);
   clearTimeout(securityTimer);
-  securityTimer = setTimeout(() => lockApplication('SessÃ£o encerrada por inatividade.'), SECURITY_DEFAULTS.sessionTtlMs + 50);
+  securityTimer = setTimeout(() => lockApplication('Sessão encerrada por inatividade.'), SECURITY_DEFAULTS.sessionTtlMs + 50);
 }
 
 function setSecurityGate({ setup = false, message = '' } = {}) {
   securitySetupMode = setup;
-  $('#security-title').textContent = setup ? 'Criar proteÃ§Ã£o do Conta Certa' : 'Conta Certa protegido';
+  $('#security-title').textContent = setup ? 'Criar proteção do Conta Certa' : 'Conta Certa protegido';
   $('#security-help').textContent = setup
-    ? 'Crie um PIN ou senha com pelo menos 6 caracteres. Ele serÃ¡ necessÃ¡rio para abrir os dados neste aparelho.'
+    ? 'Crie um PIN ou senha com pelo menos 6 caracteres. Ele será necessário para abrir os dados neste aparelho.'
     : 'Informe seu PIN ou senha para acessar os dados financeiros.';
-  $('#security-submit').textContent = setup ? 'Criar proteÃ§Ã£o e entrar' : 'Desbloquear';
+  $('#security-submit').textContent = setup ? 'Criar proteção e entrar' : 'Desbloquear';
   $('#security-confirm-wrap').hidden = !setup;
   $('#security-secret').autocomplete = setup ? 'new-password' : 'current-password';
   $('#security-secret').value = '';
@@ -80,7 +135,7 @@ function setSecurityGate({ setup = false, message = '' } = {}) {
   $('#security-gate').hidden = false;
   document.body.classList.add('app-locked');
   document.body.classList.remove('privacy-screen');
-  document.title = 'Conta Certa â€” Bloqueado';
+  document.title = 'Conta Certa — Bloqueado';
   setTimeout(() => $('#security-secret').focus(), 50);
 }
 
@@ -106,7 +161,7 @@ async function handleSecuritySubmit(event) {
   $('#security-feedback').textContent = '';
   if (securitySetupMode) {
     if (secret !== $('#security-confirm').value) {
-      $('#security-feedback').textContent = 'As duas entradas nÃ£o conferem.';
+      $('#security-feedback').textContent = 'As duas entradas não conferem.';
       return;
     }
     try {
@@ -115,7 +170,7 @@ async function handleSecuritySubmit(event) {
       unlockApplication();
     } catch (error) {
       $('#security-feedback').textContent = error.message === 'SEGREDO_MUITO_CURTO'
-        ? 'Use pelo menos 6 caracteres.' : `NÃ£o foi possÃ­vel criar a proteÃ§Ã£o: ${error.message}`;
+        ? 'Use pelo menos 6 caracteres.' : `Não foi possível criar a proteção: ${error.message}`;
     }
     return;
   }
@@ -150,14 +205,14 @@ async function initializeSecurity() {
       hiddenAt = Date.now();
       hideSensitiveSnapshot();
     } else {
-      if (hiddenAt && Date.now() - hiddenAt >= SECURITY_DEFAULTS.backgroundGraceMs && unlockedUntil) lockApplication('Aplicativo bloqueado apÃ³s ficar em segundo plano.');
+      if (hiddenAt && Date.now() - hiddenAt >= SECURITY_DEFAULTS.backgroundGraceMs && unlockedUntil) lockApplication('Aplicativo bloqueado após ficar em segundo plano.');
       else showSensitiveSnapshot();
       hiddenAt = null;
     }
   });
   $('#lock-app').addEventListener('click', () => lockApplication());
   $('#lock-app-card').addEventListener('click', () => lockApplication());
-  $('#change-security-secret').addEventListener('click', () => setSecurityGate({ setup: true, message: 'Defina a nova credencial. A alteraÃ§Ã£o sÃ³ vale neste aparelho.' }));
+  $('#change-security-secret').addEventListener('click', () => setSecurityGate({ setup: true, message: 'Defina a nova credencial. A alteração só vale neste aparelho.' }));
   if (securityCredential) setSecurityGate();
   else setSecurityGate({ setup: true });
   return new Promise(resolve => {
@@ -180,7 +235,7 @@ async function importPrivateProfileFile() {
     $('#private-profile-state').className = 'status-badge ok';
     await refreshImportedData();
   } catch (error) {
-    $('#private-profile-feedback').textContent = `Cadastro privado nÃ£o importado: ${error.message}`;
+    $('#private-profile-feedback').textContent = `Cadastro privado não importado: ${error.message}`;
   }
 }
 
@@ -196,7 +251,7 @@ function downloadJson(value, fileName) {
 async function createEncryptedBackup() {
   const passphrase = $('#backup-passphrase').value;
   const confirmation = $('#backup-confirm').value;
-  if (passphrase !== confirmation) { $('#backup-feedback').textContent = 'As senhas do backup nÃ£o conferem.'; return; }
+  if (passphrase !== confirmation) { $('#backup-feedback').textContent = 'As senhas do backup não conferem.'; return; }
   try {
     const snapshot = await exportDatabaseSnapshot('0.11.0');
     const envelope = await encryptSnapshot(snapshot, passphrase);
@@ -204,7 +259,7 @@ async function createEncryptedBackup() {
     downloadJson(envelope, `Conta_Certa_backup_${stamp}.ccbackup.json`);
     $('#backup-feedback').textContent = 'Backup criptografado gerado. Guarde o arquivo e a senha em locais seguros e separados.';
   } catch (error) {
-    $('#backup-feedback').textContent = error.message === 'SENHA_BACKUP_MUITO_CURTA' ? 'Use pelo menos 8 caracteres para proteger o backup.' : `Backup nÃ£o gerado: ${error.message}`;
+    $('#backup-feedback').textContent = error.message === 'SENHA_BACKUP_MUITO_CURTA' ? 'Use pelo menos 8 caracteres para proteger o backup.' : `Backup não gerado: ${error.message}`;
   }
 }
 
@@ -212,7 +267,7 @@ async function restoreEncryptedBackup() {
   const file = $('#restore-backup-file').files?.[0];
   const passphrase = $('#backup-passphrase').value;
   if (!file) { $('#backup-feedback').textContent = 'Selecione um arquivo .ccbackup.json.'; return; }
-  if (!window.confirm('A restauraÃ§Ã£o substituirÃ¡ os dados locais do Conta Certa neste aparelho. A credencial de acesso atual serÃ¡ preservada. Continuar?')) return;
+  if (!window.confirm('A restauração substituirá os dados locais do Conta Certa neste aparelho. A credencial de acesso atual será preservada. Continuar?')) return;
   try {
     const envelope = JSON.parse(await file.text());
     const snapshot = await decryptSnapshot(envelope, passphrase);
@@ -221,8 +276,8 @@ async function restoreEncryptedBackup() {
     setTimeout(() => window.location.reload(), 500);
   } catch (error) {
     $('#backup-feedback').textContent = error.message === 'BACKUP_SENHA_OU_INTEGRIDADE_INVALIDA'
-      ? 'RestauraÃ§Ã£o recusada: senha incorreta ou arquivo alterado/corrompido.'
-      : `RestauraÃ§Ã£o nÃ£o realizada: ${error.message}`;
+      ? 'Restauração recusada: senha incorreta ou arquivo alterado/corrompido.'
+      : `Restauração não realizada: ${error.message}`;
   }
 }
 
@@ -247,7 +302,7 @@ function movementRowsFor(competence) {
 
 const expenseLabelForCompetence = competence => {
   const [year, month] = String(competence).split('-').map(Number);
-  const names = ['janeiro','fevereiro','marÃ§o','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  const names = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
   return `${names[month - 1] ?? month}/${year}`;
 };
 
@@ -267,7 +322,7 @@ function renderRequiredExpenseForm({ disabled = false } = {}) {
   const competence = $('#closing-competence').value;
   if (!competence) return;
   const configs = [
-    { category:'Ãgua', amount:'#water-expense-amount', date:'#water-expense-date', status:'#water-expense-status', button:'#save-water-expense' },
+    { category:'Água', amount:'#water-expense-amount', date:'#water-expense-date', status:'#water-expense-status', button:'#save-water-expense' },
     { category:'Energia', amount:'#energy-expense-amount', date:'#energy-expense-date', status:'#energy-expense-status', button:'#save-energy-expense' },
   ];
 
@@ -280,7 +335,7 @@ function renderRequiredExpenseForm({ disabled = false } = {}) {
     if (!amount || !date || !status || !button) continue;
     amount.value = item ? (item.amountCents / 100).toFixed(2) : '';
     date.value = item?.date?.slice(0,10) || `${competence}-01`;
-    status.textContent = item ? `Registrada â€¢ ${money(item.amountCents)}` : 'Pendente';
+    status.textContent = item ? `Registrada • ${money(item.amountCents)}` : 'Pendente';
     status.className = `status-badge ${item ? 'ok' : 'attention'}`;
     amount.disabled = disabled;
     date.disabled = disabled;
@@ -298,7 +353,7 @@ function renderRequiredExpenseForm({ disabled = false } = {}) {
 
 async function saveRequiredExpense(category) {
   const competence = $('#closing-competence').value;
-  const isWater = category === 'Ãgua';
+  const isWater = category === 'Água';
   const date = $(isWater ? '#water-expense-date' : '#energy-expense-date').value;
   const amountCents = toCents($(isWater ? '#water-expense-amount' : '#energy-expense-amount').value);
   if (!competence || !date || amountCents <= 0) {
@@ -312,14 +367,14 @@ async function saveRequiredExpense(category) {
       date,
       kind: 'expense',
       category,
-      description: `${category} â€” ${expenseLabelForCompetence(competence)}`,
+      description: `${category} — ${expenseLabelForCompetence(competence)}`,
       amountCents,
     });
     await saveTransaction(movement);
     $('#closing-feedback').textContent = `${category} registrada. Se corrigir o valor antes do fechamento, salve novamente para atualizar a mesma despesa.`;
     await refreshCashbook();
   } catch (error) {
-    $('#closing-feedback').textContent = `Despesa nÃ£o registrada: ${error.message}`;
+    $('#closing-feedback').textContent = `Despesa não registrada: ${error.message}`;
   }
 }
 
@@ -329,7 +384,7 @@ async function addOtherExpense() {
   const description = $('#other-expense-description').value.trim();
   const amountCents = toCents($('#other-expense-amount').value);
   if (!competence || !date || !description || amountCents <= 0) {
-    $('#closing-feedback').textContent = 'Em Outras despesas, informe data, descriÃ§Ã£o e valor.';
+    $('#closing-feedback').textContent = 'Em Outras despesas, informe data, descrição e valor.';
     return;
   }
   try {
@@ -345,10 +400,10 @@ async function addOtherExpense() {
     await saveTransaction(movement);
     $('#other-expense-description').value = '';
     $('#other-expense-amount').value = '';
-    $('#closing-feedback').textContent = 'Outra despesa adicionada. VocÃª pode adicionar quantas forem necessÃ¡rias nesta competÃªncia.';
+    $('#closing-feedback').textContent = 'Outra despesa adicionada. Você pode adicionar quantas forem necessárias nesta competência.';
     await refreshCashbook();
   } catch (error) {
-    $('#closing-feedback').textContent = `Despesa nÃ£o registrada: ${error.message}`;
+    $('#closing-feedback').textContent = `Despesa não registrada: ${error.message}`;
   }
 }
 
@@ -362,22 +417,22 @@ function renderClosingView() {
   if (historical) {
     openingInput.value = (existing.openingBalanceCents / 100).toFixed(2);
     openingInput.readOnly = true;
-    $('#opening-balance-source').textContent = 'Fechamento preservado da base histÃ³rica importada.';
+    $('#opening-balance-source').textContent = 'Fechamento preservado da base histórica importada.';
     $('#closing-opening').textContent = money(existing.openingBalanceCents);
     $('#closing-revenue').textContent = money(existing.revenueCents);
     $('#closing-expense').textContent = money(existing.expenseCents);
     $('#closing-result').textContent = money(existing.resultCents);
     $('#closing-balance').textContent = money(existing.closingBalanceCents);
     const state = $('#closing-state');
-    state.textContent = 'Fechado (histÃ³rico)';
+    state.textContent = 'Fechado (histórico)';
     state.className = 'status-badge ok';
     $('#close-month').disabled = true;
     $('#reopen-month').disabled = true;
     $('#download-statement').disabled = true;
     $('#save-movement').disabled = true;
     renderRequiredExpenseForm({ disabled: true });
-    $('#closing-movements').innerHTML = '<p class="muted">CompetÃªncia encerrada no histÃ³rico importado. Consulte a aba HistÃ³rico para os detalhes da fonte original.</p>';
-    $('#closing-feedback').textContent = 'CompetÃªncia histÃ³rica bloqueada para novos lanÃ§amentos. CorreÃ§Ãµes devem ser feitas na fonte histÃ³rica e reimportadas.';
+    $('#closing-movements').innerHTML = '<p class="muted">Competência encerrada no histórico importado. Consulte a aba Histórico para os detalhes da fonte original.</p>';
+    $('#closing-feedback').textContent = 'Competência histórica bloqueada para novos lançamentos. Correções devem ser feitas na fonte histórica e reimportadas.';
     return;
   }
 
@@ -385,15 +440,15 @@ function renderClosingView() {
   if (prior.blocked) {
     openingInput.value = '';
     openingInput.readOnly = true;
-    $('#closing-feedback').textContent = \`NÃ£o Ã© possÃ­vel fechar \${competence}: a competÃªncia anterior (\${prior.competence}) estÃ¡ reaberta.\`;
+    $('#closing-feedback').textContent = \`Não é possível fechar \${competence}: a competência anterior (\${prior.competence}) está reaberta.\`;
   } else if (prior.value != null) {
     openingInput.value = (prior.value / 100).toFixed(2);
     openingInput.readOnly = true;
-    $('#opening-balance-source').textContent = prior.source === 'closing' ? \`Transportado do fechamento de \${prior.competence}\` : \`Transportado do histÃ³rico de \${prior.competence}\`;
+    $('#opening-balance-source').textContent = prior.source === 'closing' ? \`Transportado do fechamento de \${prior.competence}\` : \`Transportado do histórico de \${prior.competence}\`;
   } else {
     if (!openingInput.value) openingInput.value = '0.00';
     openingInput.readOnly = false;
-    $('#opening-balance-source').textContent = 'Sem competÃªncia anterior encontrada: informe o saldo inicial uma Ãºnica vez.';
+    $('#opening-balance-source').textContent = 'Sem competência anterior encontrada: informe o saldo inicial uma única vez.';
   }
 
   const summary = summarizeCompetence({competence, openingBalanceCents: toCents(openingInput.value), payments, movements});
@@ -413,7 +468,7 @@ function renderClosingView() {
   renderRequiredExpenseForm({ disabled: locked });
 
   const rows = movementRowsFor(competence);
-  $('#closing-movements').innerHTML = rows.length ? rows.map(r => \`<article class="cash-row"><div><strong>\${escapeHtml(r.description)}</strong><small>\${escapeHtml(String(r.date).slice(0,10))} â€¢ \${escapeHtml(r.source)}\${r.category ? \` â€¢ \${escapeHtml(r.category)}\` : ''}</small></div><span class="\${r.kind === 'expense' ? 'negative' : 'positive'}">\${r.kind === 'expense' ? '-' : '+'} \${money(r.amountCents)}</span></article>\`).join('') : '<p class="muted">Nenhuma movimentaÃ§Ã£o financeira nesta competÃªncia.</p>';
+  $('#closing-movements').innerHTML = rows.length ? rows.map(r => \`<article class="cash-row"><div><strong>\${escapeHtml(r.description)}</strong><small>\${escapeHtml(String(r.date).slice(0,10))} • \${escapeHtml(r.source)}\${r.category ? \` • \${escapeHtml(r.category)}\` : ''}</small></div><span class="\${r.kind === 'expense' ? 'negative' : 'positive'}">\${r.kind === 'expense' ? '-' : '+'} \${money(r.amountCents)}</span></article>\`).join('') : '<p class="muted">Nenhuma movimentação financeira nesta competência.</p>';
 }
 
 async function refreshCashbook() {
@@ -438,14 +493,14 @@ async function addCashMovement() {
     $('#closing-feedback').textContent = movement.kind === 'expense' ? 'Despesa registrada.' : 'Receita registrada.';
     $('#movement-description').value = ''; $('#movement-amount').value = '';
     await refreshCashbook();
-  } catch (error) { $('#closing-feedback').textContent = `Movimento nÃ£o registrado: ${error.message}`; }
+  } catch (error) { $('#closing-feedback').textContent = `Movimento não registrado: ${error.message}`; }
 }
 
 async function closeSelectedMonth() {
   const competence = $('#closing-competence').value;
   const required = requiredExpenseStatus(movements, competence);
   if (!required.complete) {
-    $('#closing-feedback').textContent = `Fechamento bloqueado. Despesas obrigatÃ³rias ausentes: ${required.missing.join(' e ')}.`;
+    $('#closing-feedback').textContent = `Fechamento bloqueado. Despesas obrigatórias ausentes: ${required.missing.join(' e ')}.`;
     return;
   }
   const prior = previousBalanceFor(competence);
@@ -455,33 +510,33 @@ async function closeSelectedMonth() {
     const previousRecord = monthClosings.find(c => c.competence === competence) ?? null;
     const record = createClosingRecord({summary, previousRecord});
     await saveMonthClosing(record);
-    $('#closing-feedback').textContent = `CompetÃªncia ${competence} fechada. O saldo final ${money(record.closingBalanceCents)} serÃ¡ a abertura do mÃªs seguinte.`;
+    $('#closing-feedback').textContent = `Competência ${competence} fechada. O saldo final ${money(record.closingBalanceCents)} será a abertura do mês seguinte.`;
     await refreshCashbook();
-  } catch (error) { $('#closing-feedback').textContent = `Fechamento nÃ£o realizado: ${error.message}`; }
+  } catch (error) { $('#closing-feedback').textContent = `Fechamento não realizado: ${error.message}`; }
 }
 
 async function reopenSelectedMonth() {
   const competence = $('#closing-competence').value;
   const current = monthClosings.find(c => c.competence === competence);
   if (!current) return;
-  const reason = window.prompt('Informe o motivo da reabertura. O evento ficarÃ¡ registrado no histÃ³rico:');
+  const reason = window.prompt('Informe o motivo da reabertura. O evento ficará registrado no histórico:');
   if (reason == null) return;
   try {
     await reopenMonthClosing(reopenClosingRecord(current, reason));
-    $('#closing-feedback').textContent = `CompetÃªncia ${competence} reaberta. ApÃ³s a correÃ§Ã£o, feche novamente para criar uma nova revisÃ£o.`;
+    $('#closing-feedback').textContent = `Competência ${competence} reaberta. Após a correção, feche novamente para criar uma nova revisão.`;
     await refreshCashbook();
-  } catch (error) { $('#closing-feedback').textContent = `Reabertura nÃ£o realizada: ${error.message}`; }
+  } catch (error) { $('#closing-feedback').textContent = `Reabertura não realizada: ${error.message}`; }
 }
 
 function downloadMonthlyStatement() {
   const competence = $('#closing-competence').value;
   const closing = monthClosings.find(c => c.competence === competence && c.status === 'closed');
-  if (!closing) { $('#closing-feedback').textContent = 'A prestaÃ§Ã£o de contas sÃ³ pode ser gerada apÃ³s o fechamento.'; return; }
+  if (!closing) { $('#closing-feedback').textContent = 'A prestação de contas só pode ser gerada após o fechamento.'; return; }
   try {
     const bytes = buildMonthlyStatementPdf({residential: residentialData, closing, payments, movements});
     downloadBytes(bytes, `Conta_Certa_Prestacao_${competence}_rev${closing.revision}.pdf`);
-    $('#closing-feedback').textContent = 'PrestaÃ§Ã£o de contas mensal gerada em PDF.';
-  } catch (error) { $('#closing-feedback').textContent = `PDF nÃ£o gerado: ${error.message}`; }
+    $('#closing-feedback').textContent = 'Prestação de contas mensal gerada em PDF.';
+  } catch (error) { $('#closing-feedback').textContent = `PDF não gerado: ${error.message}`; }
 }
 
 
@@ -497,9 +552,9 @@ function quoteRow(seed = {}) {
   const row = document.createElement('div');
   row.className = 'quote-row';
   row.innerHTML = `
-    <label>Fornecedor / orÃ§amento<input class="quote-supplier" value="${escapeHtml(seed.supplier ?? '')}" placeholder="Ex.: OrÃ§amento A"></label>
+    <label>Fornecedor / orçamento<input class="quote-supplier" value="${escapeHtml(seed.supplier ?? '')}" placeholder="Ex.: Orçamento A"></label>
     <label>Valor (R$)<input class="quote-amount" type="number" min="0" step="0.01" value="${seed.amount ?? ''}" placeholder="0,00"></label>
-    <button type="button" class="icon-button remove-quote" aria-label="Remover orÃ§amento">Ã—</button>`;
+    <button type="button" class="icon-button remove-quote" aria-label="Remover orçamento">×</button>`;
   row.querySelector('.remove-quote').addEventListener('click', () => { if (quoteList.children.length > 1) row.remove(); });
   quoteList.appendChild(row);
 }
@@ -507,7 +562,7 @@ function quoteRow(seed = {}) {
 function readQuotes() {
   return [...document.querySelectorAll('.quote-row')].map((row, i) => ({
     id: `q-${i + 1}`,
-    supplier: row.querySelector('.quote-supplier').value.trim() || `OrÃ§amento ${i + 1}`,
+    supplier: row.querySelector('.quote-supplier').value.trim() || `Orçamento ${i + 1}`,
     amountCents: toCents(row.querySelector('.quote-amount').value),
   })).filter(q => q.amountCents > 0);
 }
@@ -517,19 +572,19 @@ function renderProjection(project) {
   result.innerHTML = '';
   const comparison = $('#projection-comparison');
   if (comparison) comparison.textContent = project.quotes.length > 1
-    ? `DiferenÃ§a entre o menor e o maior custo planejado: ${money(project.comparison.spreadCents)}. O Conta Certa compara os cenÃ¡rios, mas nÃ£o escolhe fornecedor.`
-    : 'Adicione mais de um orÃ§amento para comparar cenÃ¡rios sem escolher automaticamente um fornecedor.';
+    ? `Diferença entre o menor e o maior custo planejado: ${money(project.comparison.spreadCents)}. O Conta Certa compara os cenários, mas não escolhe fornecedor.`
+    : 'Adicione mais de um orçamento para comparar cenários sem escolher automaticamente um fornecedor.';
   for (const q of project.quotes) {
     const card = document.createElement('article');
     card.className = `quote-result ${q.canHireWithoutTouchingReserve ? 'ok' : 'attention'}`;
     const coverage = (q.coverageBasisPoints / 100).toFixed(2).replace('.', ',');
     const splitValues = [...new Set(q.suggestedSplitCents)].sort((a,b)=>b-a);
-    const splitText = q.gapCents === 0 ? 'NÃ£o necessÃ¡rio' : splitValues.length === 1
+    const splitText = q.gapCents === 0 ? 'Não necessário' : splitValues.length === 1
       ? `${money(splitValues[0])} por unidade`
       : `${money(splitValues.at(-1))} a ${money(splitValues[0])} por unidade (soma exata ${money(q.suggestedSplitTotalCents)})`;
     card.innerHTML = `<div class="quote-title"><strong>${escapeHtml(q.supplier)}</strong><span>${money(q.plannedQuoteCents)}</span></div>
-      <div class="meter" aria-label="${coverage}% do orÃ§amento coberto"><span style="width:${Math.min(100, q.coverageBasisPoints / 100)}%"></span></div>
-      <dl><div><dt>PreÃ§o informado</dt><dd>${money(q.quoteCents)}</dd></div><div><dt>Margem de contingÃªncia</dt><dd>${money(q.contingencyCents)}</dd></div><div><dt>Custo planejado</dt><dd>${money(q.plannedQuoteCents)}</dd></div><div><dt>Caixa atual</dt><dd>${money(q.cashBalanceCents)}</dd></div><div><dt>Reserva protegida</dt><dd>${money(q.protectedReserveCents)}</dd></div><div><dt>Compromissos jÃ¡ assumidos</dt><dd>${money(q.committedCents)}</dd></div><div><dt>DisponÃ­vel para o projeto</dt><dd>${money(q.availableForProjectCents)}</dd></div><div><dt>Cobertura</dt><dd>${coverage}%</dd></div><div><dt>Saldo apÃ³s pagamento</dt><dd>${money(q.projectedBalanceAfterPaymentCents)}</dd></div><div><dt>${q.gapCents ? 'DÃ©ficit a cobrir' : 'SituaÃ§Ã£o'}</dt><dd>${q.gapCents ? money(q.gapCents) : 'Cabe no caixa disponÃ­vel'}</dd></div><div><dt>Rateio de referÃªncia</dt><dd>${splitText}</dd></div></dl>`;
+      <div class="meter" aria-label="${coverage}% do orçamento coberto"><span style="width:${Math.min(100, q.coverageBasisPoints / 100)}%"></span></div>
+      <dl><div><dt>Preço informado</dt><dd>${money(q.quoteCents)}</dd></div><div><dt>Margem de contingência</dt><dd>${money(q.contingencyCents)}</dd></div><div><dt>Custo planejado</dt><dd>${money(q.plannedQuoteCents)}</dd></div><div><dt>Caixa atual</dt><dd>${money(q.cashBalanceCents)}</dd></div><div><dt>Reserva protegida</dt><dd>${money(q.protectedReserveCents)}</dd></div><div><dt>Compromissos já assumidos</dt><dd>${money(q.committedCents)}</dd></div><div><dt>Disponível para o projeto</dt><dd>${money(q.availableForProjectCents)}</dd></div><div><dt>Cobertura</dt><dd>${coverage}%</dd></div><div><dt>Saldo após pagamento</dt><dd>${money(q.projectedBalanceAfterPaymentCents)}</dd></div><div><dt>${q.gapCents ? 'Déficit a cobrir' : 'Situação'}</dt><dd>${q.gapCents ? money(q.gapCents) : 'Cabe no caixa disponível'}</dd></div><div><dt>Rateio de referência</dt><dd>${splitText}</dd></div></dl>`;
     result.appendChild(card);
   }
 }
@@ -537,13 +592,13 @@ function renderProjection(project) {
 async function renderProjectionHistory() {
   const history = $('#projection-history');
   const items = (await listProjections()).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  if (!items.length) { history.innerHTML = '<p class="muted">Nenhuma projeÃ§Ã£o salva ainda.</p>'; return; }
-  history.innerHTML = items.slice(0, 5).map(item => `<article class="history-item"><strong>${escapeHtml(item.name)}</strong><span>${escapeHtml(new Date(item.createdAt).toLocaleString('pt-BR'))}</span><small>${Number(item.quotes?.length ?? 0)} orÃ§amento(s) registrado(s)</small></article>`).join('');
+  if (!items.length) { history.innerHTML = '<p class="muted">Nenhuma projeção salva ainda.</p>'; return; }
+  history.innerHTML = items.slice(0, 5).map(item => `<article class="history-item"><strong>${escapeHtml(item.name)}</strong><span>${escapeHtml(new Date(item.createdAt).toLocaleString('pt-BR'))}</span><small>${Number(item.quotes?.length ?? 0)} orçamento(s) registrado(s)</small></article>`).join('');
 }
 
 async function calculateProjection(save = false) {
   const quotes = readQuotes();
-  if (!quotes.length) { $('#projection-result').innerHTML = '<p class="warning">Informe pelo menos um orÃ§amento com valor maior que zero.</p>'; return; }
+  if (!quotes.length) { $('#projection-result').innerHTML = '<p class="warning">Informe pelo menos um orçamento com valor maior que zero.</p>'; return; }
   const name = $('#project-name').value.trim() || 'Projeto sem nome';
   const cashBalanceCents = toCents($('#cash-balance').value);
   const protectedReserveCents = toCents($('#protected-reserve').value);
@@ -556,7 +611,7 @@ async function calculateProjection(save = false) {
   if (save) {
     await saveProjection({ id: crypto.randomUUID(), createdAt: new Date().toISOString(), name, cashBalanceCents, protectedReserveCents, committedCents, contingencyBasisPoints, activeUnits, quotes });
     await renderProjectionHistory();
-    $('#save-feedback').textContent = 'ProjeÃ§Ã£o salva no dispositivo.';
+    $('#save-feedback').textContent = 'Projeção salva no dispositivo.';
     setTimeout(() => { $('#save-feedback').textContent = ''; }, 2500);
   }
 }
@@ -566,17 +621,17 @@ function renderUnits(units) {
   if (!units.length) { box.innerHTML = '<p class="muted">Nenhuma unidade cadastrada.</p>'; return; }
   box.innerHTML = units.map(unit => {
     const phones = unit.contacts?.filter(c => c.type === 'phone')?.length ?? (unit.phone ? 1 : 0);
-    return `<article class="unit-row"><div><strong>${escapeHtml(unit.label ?? `Apartamento ${unit.id}`)}</strong><span>${escapeHtml(unit.responsibleName ?? 'ResponsÃ¡vel nÃ£o informado')}</span></div><small>${phones} telefone(s) cadastrado(s)</small></article>`;
+    return `<article class="unit-row"><div><strong>${escapeHtml(unit.label ?? `Apartamento ${unit.id}`)}</strong><span>${escapeHtml(unit.responsibleName ?? 'Responsável não informado')}</span></div><small>${phones} telefone(s) cadastrado(s)</small></article>`;
   }).join('');
 }
 
 function renderHistory(periods) {
   const box = $('#history-table');
-  if (!periods.length) { box.innerHTML = '<p class="muted">Nenhum histÃ³rico importado.</p>'; return; }
+  if (!periods.length) { box.innerHTML = '<p class="muted">Nenhum histórico importado.</p>'; return; }
   const rows = summarizeByYear(periods);
-  box.innerHTML = `<div class="responsive-table"><table><thead><tr><th>Ano</th><th>Meses</th><th>Receitas</th><th>Despesas</th><th>Saldo final</th><th>ConciliaÃ§Ã£o</th></tr></thead><tbody>${rows.map(r => {
-    const details = [r.ok ? `${r.ok} ok` : '', r.resolved ? `${r.resolved} explicada(s)` : '', r.legacy ? `${r.legacy} legado` : '', r.review ? `${r.review} revisar` : ''].filter(Boolean).join(' â€¢ ');
-    return `<tr><td>${r.year}</td><td>${r.months}</td><td>${money(r.revenuesCents)}</td><td>${money(r.expensesCents)}</td><td>${money(r.closingBalanceCents)}</td><td><span class="status-badge ${r.review ? 'attention' : 'ok'}">${r.review ? `${r.review} revisÃ£o manual` : 'Classificado'}</span><small class="table-note">${details}</small></td></tr>`;
+  box.innerHTML = `<div class="responsive-table"><table><thead><tr><th>Ano</th><th>Meses</th><th>Receitas</th><th>Despesas</th><th>Saldo final</th><th>Conciliação</th></tr></thead><tbody>${rows.map(r => {
+    const details = [r.ok ? `${r.ok} ok` : '', r.resolved ? `${r.resolved} explicada(s)` : '', r.legacy ? `${r.legacy} legado` : '', r.review ? `${r.review} revisar` : ''].filter(Boolean).join(' • ');
+    return `<tr><td>${r.year}</td><td>${r.months}</td><td>${money(r.revenuesCents)}</td><td>${money(r.expensesCents)}</td><td>${money(r.closingBalanceCents)}</td><td><span class="status-badge ${r.review ? 'attention' : 'ok'}">${r.review ? `${r.review} revisão manual` : 'Classificado'}</span><small class="table-note">${details}</small></td></tr>`;
   }).join('')}</tbody></table></div>`;
 }
 
@@ -588,7 +643,7 @@ function fillUnitSelectors() {
 }
 
 const kindLabel = kind => ({
-  monthly_contribution: 'Mensalidade', extraordinary_fee: 'Taxa extraordinÃ¡ria', installment: 'Parcelamento', other: 'Outra obrigaÃ§Ã£o'
+  monthly_contribution: 'Mensalidade', extraordinary_fee: 'Taxa extraordinária', installment: 'Parcelamento', other: 'Outra obrigação'
 }[kind] ?? kind);
 
 function renderObligations() {
@@ -597,7 +652,7 @@ function renderObligations() {
   $('#obligation-pending').textContent = summary.pendingCount;
   $('#obligation-outstanding').textContent = money(summary.outstandingCents);
   const box = $('#obligation-list');
-  if (!ledger.length) { box.innerHTML = '<p class="muted">Nenhuma obrigaÃ§Ã£o registrada.</p>'; return; }
+  if (!ledger.length) { box.innerHTML = '<p class="muted">Nenhuma obrigação registrada.</p>'; return; }
   const unitsById = new Map(importedUnits.map(u => [String(u.id), u]));
   const ordered = [...ledger].sort((a,b) => (b.dueDate ?? '').localeCompare(a.dueDate ?? '') || String(a.unitId).localeCompare(String(b.unitId)));
   box.innerHTML = ordered.map(o => {
@@ -607,8 +662,8 @@ function renderObligations() {
     const cancellation = o.status === 'cancelled' && o.cancellationReason ? \`<small>Cancelamento: \${escapeHtml(o.cancellationReason)}</small>\` : '';
     const canCancel = o.status === 'open' && (o.paidCents ?? 0) === 0;
     return \`<article class="obligation-row">
-      <div class="obligation-main"><strong>\${escapeHtml(unit?.label ?? \`Unidade \${o.unitId}\`)} â€¢ \${escapeHtml(kindLabel(o.kind))}</strong><span>\${escapeHtml(o.description ?? '')}</span><small>Vencimento: \${escapeHtml(o.dueDate ?? 'nÃ£o informado')} â€¢ Total: \${money(o.amountCents)}\${o.paidCents ? \` â€¢ Pago: \${money(o.paidCents)}\` : ''}</small>\${cancellation}</div>
-      <div class="obligation-actions"><span class="status-badge \${o.status === 'paid' ? 'ok' : o.status === 'cancelled' ? 'neutral' : 'attention'}">\${escapeHtml(statusLabel)}\${pending ? \` â€¢ falta \${money(pending)}\` : ''}</span>\${o.status !== 'paid' && o.status !== 'cancelled' ? \`<button type="button" class="small-button pay-obligation" data-id="\${escapeHtml(o.id)}">Registrar pagamento</button>\` : ''}\${canCancel ? \`<button type="button" class="small-button danger-button cancel-obligation" data-id="\${escapeHtml(o.id)}">Cancelar obrigaÃ§Ã£o</button>\` : ''}</div>
+      <div class="obligation-main"><strong>\${escapeHtml(unit?.label ?? \`Unidade \${o.unitId}\`)} • \${escapeHtml(kindLabel(o.kind))}</strong><span>\${escapeHtml(o.description ?? '')}</span><small>Vencimento: \${escapeHtml(o.dueDate ?? 'não informado')} • Total: \${money(o.amountCents)}\${o.paidCents ? \` • Pago: \${money(o.paidCents)}\` : ''}</small>\${cancellation}</div>
+      <div class="obligation-actions"><span class="status-badge \${o.status === 'paid' ? 'ok' : o.status === 'cancelled' ? 'neutral' : 'attention'}">\${escapeHtml(statusLabel)}\${pending ? \` • falta \${money(pending)}\` : ''}</span>\${o.status !== 'paid' && o.status !== 'cancelled' ? \`<button type="button" class="small-button pay-obligation" data-id="\${escapeHtml(o.id)}">Registrar pagamento</button>\` : ''}\${canCancel ? \`<button type="button" class="small-button danger-button cancel-obligation" data-id="\${escapeHtml(o.id)}">Cancelar obrigação</button>\` : ''}</div>
     </article>\`;
   }).join('');
   document.querySelectorAll('.pay-obligation').forEach(button => button.addEventListener('click', () => payObligation(button.dataset.id)));
@@ -632,7 +687,7 @@ async function addObligation() {
   const dueDate = $('#obligation-due').value;
   const [year, month] = ($('#obligation-competence').value || '').split('-').map(Number);
   if (!unitId || !amountCents || !dueDate || !year || !month) {
-    $('#obligation-feedback').textContent = 'Preencha unidade, competÃªncia, vencimento e valor.';
+    $('#obligation-feedback').textContent = 'Preencha unidade, competência, vencimento e valor.';
     return;
   }
   const obligation = normalizeObligation({
@@ -641,7 +696,7 @@ async function addObligation() {
     amountCents, paidCents: 0, dueDate, year, month, required: true,
   });
   await saveObligation(obligation);
-  $('#obligation-feedback').textContent = 'ObrigaÃ§Ã£o registrada.';
+  $('#obligation-feedback').textContent = 'Obrigação registrada.';
   $('#obligation-amount').value = '';
   await refreshLedger();
 }
@@ -652,13 +707,13 @@ async function generateMonthlyBatch() {
   const dueDate = $('#monthly-due').value;
   const [year, month] = competence.split('-').map(Number);
   if (!year || !month || !amountCents || !dueDate || !importedUnits.length) {
-    $('#obligation-feedback').textContent = 'Informe competÃªncia, vencimento e valor e tenha unidades cadastradas.';
+    $('#obligation-feedback').textContent = 'Informe competência, vencimento e valor e tenha unidades cadastradas.';
     return;
   }
   const newItems = createMonthlyObligations({ units: importedUnits, year, month, amountCents, dueDate });
   const existingIds = new Set(ledger.map(o => o.id));
   const unique = newItems.filter(o => !existingIds.has(o.id));
-  if (!unique.length) { $('#obligation-feedback').textContent = 'As mensalidades dessa competÃªncia jÃ¡ existem.'; return; }
+  if (!unique.length) { $('#obligation-feedback').textContent = 'As mensalidades dessa competência já existem.'; return; }
   await saveObligations(unique);
   $('#obligation-feedback').textContent = `${unique.length} mensalidade(s) gerada(s).`;
   await refreshLedger();
@@ -680,35 +735,35 @@ async function payObligation(id) {
       obligation: updated,
       payment: { id: crypto.randomUUID(), obligationId: id, unitId: obligation.unitId, amountCents: paymentCents, paidAt },
     });
-    $('#obligation-feedback').textContent = updated.status === 'paid' ? 'ObrigaÃ§Ã£o quitada na data informada.' : 'Pagamento parcial registrado na data informada.';
+    $('#obligation-feedback').textContent = updated.status === 'paid' ? 'Obrigação quitada na data informada.' : 'Pagamento parcial registrado na data informada.';
     await refreshLedger();
     await refreshCashbook();
   } catch (error) {
     $('#obligation-feedback').textContent = error.message === 'DATA_PAGAMENTO_INVALIDA'
-      ? 'Pagamento nÃ£o registrado: informe uma data vÃ¡lida no formato AAAA-MM-DD.'
-      : `Pagamento nÃ£o registrado: ${error.message}`;
+      ? 'Pagamento não registrado: informe uma data válida no formato AAAA-MM-DD.'
+      : `Pagamento não registrado: ${error.message}`;
   }
 }
 
 async function cancelObligationUi(id) {
   const obligation = ledger.find(o => o.id === id);
   if (!obligation) return;
-  const reason = window.prompt('Informe o motivo do cancelamento. O registro continuarÃ¡ no histÃ³rico:', 'LanÃ§amento de teste');
+  const reason = window.prompt('Informe o motivo do cancelamento. O registro continuará no histórico:', 'Lançamento de teste');
   if (reason == null) return;
-  if (!window.confirm(\`Cancelar esta obrigaÃ§Ã£o de \${money(obligation.amountCents)}? O registro ficarÃ¡ marcado como CANCELADO.\`)) return;
+  if (!window.confirm(\`Cancelar esta obrigação de \${money(obligation.amountCents)}? O registro ficará marcado como CANCELADO.\`)) return;
   try {
     const updated = cancelObligation(obligation, reason);
     await saveObligation(updated);
-    $('#obligation-feedback').textContent = 'ObrigaÃ§Ã£o cancelada. Ela deixou de compor as pendÃªncias e permaneceu registrada no histÃ³rico.';
+    $('#obligation-feedback').textContent = 'Obrigação cancelada. Ela deixou de compor as pendências e permaneceu registrada no histórico.';
     await refreshLedger();
   } catch (error) {
     $('#obligation-feedback').textContent = error.message === 'OBRIGACAO_COM_PAGAMENTO_NAO_PODE_SER_CANCELADA'
-      ? 'Esta obrigaÃ§Ã£o jÃ¡ possui pagamento. Para corrigi-la, serÃ¡ necessÃ¡rio um fluxo de estorno.'
+      ? 'Esta obrigação já possui pagamento. Para corrigi-la, será necessário um fluxo de estorno.'
       : error.message === 'COMPETENCIA_FECHADA'
-        ? 'A competÃªncia desta obrigaÃ§Ã£o estÃ¡ fechada e nÃ£o pode ser alterada.'
+        ? 'A competência desta obrigação está fechada e não pode ser alterada.'
         : error.message === 'MOTIVO_CANCELAMENTO_OBRIGATORIO'
           ? 'Informe um motivo com pelo menos 5 caracteres.'
-          : \`Cancelamento nÃ£o realizado: \${error.message}\`;
+          : \`Cancelamento não realizado: \${error.message}\`;
   }
 }
 
@@ -734,22 +789,22 @@ async function generateResidentAccessPackage() {
     const safeUnit = String(unit.label ?? unit.id).replace(/[^A-Za-z0-9_-]+/g, '_');
     downloadJson(envelope, `Conta_Certa_Morador_${safeUnit}_${localDateValue()}.ccresident.json`);
     $('#resident-access-token').textContent = activationToken;
-    $('#resident-access-feedback').textContent = 'Arquivo criptografado gerado. Envie o arquivo e a chave de ativaÃ§Ã£o diretamente ao morador. O acesso diÃ¡rio serÃ¡ feito com telefone cadastrado + PIN de 4 dÃ­gitos.';
+    $('#resident-access-feedback').textContent = 'Arquivo criptografado gerado. Envie o arquivo e a chave de ativação diretamente ao morador. O acesso diário será feito com telefone cadastrado + PIN de 4 dígitos.';
   } catch (error) {
     $('#resident-access-feedback').textContent = error.message === 'UNIDADE_SEM_TELEFONE_AUTORIZADO'
-      ? 'Esta unidade nÃ£o possui telefone ativo no cadastro privado.'
-      : `Pacote do morador nÃ£o gerado: ${error.message}`;
+      ? 'Esta unidade não possui telefone ativo no cadastro privado.'
+      : `Pacote do morador não gerado: ${error.message}`;
   }
 }
 
 async function copyResidentActivationToken() {
   const token = $('#resident-access-token').textContent.trim();
-  if (!token || token === 'â€”') return;
+  if (!token || token === '—') return;
   try {
     await navigator.clipboard.writeText(token);
-    $('#resident-access-feedback').textContent = 'Chave de ativaÃ§Ã£o copiada. Quando possÃ­vel, envie a chave separadamente do arquivo.';
+    $('#resident-access-feedback').textContent = 'Chave de ativação copiada. Quando possível, envie a chave separadamente do arquivo.';
   } catch {
-    $('#resident-access-feedback').textContent = 'NÃ£o foi possÃ­vel copiar automaticamente. Selecione e copie a chave exibida.';
+    $('#resident-access-feedback').textContent = 'Não foi possível copiar automaticamente. Selecione e copie a chave exibida.';
   }
 }
 
@@ -782,17 +837,17 @@ async function shareCertificate(certificateId) {
   const phones = certificatePhones(unit);
   const bytes = base64ToBytes(record.pdfBase64);
   const file = new File([bytes], record.fileName, { type: 'application/pdf' });
-  const text = `DeclaraÃ§Ã£o de adimplÃªncia ${record.year} - ${record.unitLabel}. Destino cadastrado: ${phones.join(' / ') || 'sem telefone cadastrado'}.`;
+  const text = `Declaração de adimplência ${record.year} - ${record.unitLabel}. Destino cadastrado: ${phones.join(' / ') || 'sem telefone cadastrado'}.`;
   try {
     if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
-      await navigator.share({ title: 'Conta Certa - DeclaraÃ§Ã£o de adimplÃªncia', text, files: [file] });
-      $('#certificate-feedback').textContent = 'Compartilhamento aberto no aparelho. Confirme o aplicativo e o destinatÃ¡rio.';
+      await navigator.share({ title: 'Conta Certa - Declaração de adimplência', text, files: [file] });
+      $('#certificate-feedback').textContent = 'Compartilhamento aberto no aparelho. Confirme o aplicativo e o destinatário.';
     } else {
       downloadBytes(bytes, record.fileName);
-      $('#certificate-feedback').textContent = 'Seu navegador nÃ£o permite compartilhar o PDF diretamente. O arquivo foi baixado.';
+      $('#certificate-feedback').textContent = 'Seu navegador não permite compartilhar o PDF diretamente. O arquivo foi baixado.';
     }
   } catch (error) {
-    if (error?.name !== 'AbortError') $('#certificate-feedback').textContent = `Compartilhamento nÃ£o concluÃ­do: ${error.message}`;
+    if (error?.name !== 'AbortError') $('#certificate-feedback').textContent = `Compartilhamento não concluído: ${error.message}`;
   }
 }
 
@@ -800,15 +855,15 @@ function renderCertificateHistory() {
   const box = $('#certificate-history');
   const validation = $('#validation-certificate');
   const ordered = [...certificates].sort((a,b) => String(b.issuedAt).localeCompare(String(a.issuedAt)));
-  validation.innerHTML = ordered.length ? ordered.map(c => `<option value="${escapeHtml(c.certificateId)}">${escapeHtml(c.unitLabel)} - ${c.year} - ${escapeHtml(c.certificateId)}</option>`).join('') : '<option value="">Nenhuma declaraÃ§Ã£o</option>';
-  if (!ordered.length) { box.innerHTML = '<p class="muted">Nenhuma declaraÃ§Ã£o emitida.</p>'; return; }
+  validation.innerHTML = ordered.length ? ordered.map(c => `<option value="${escapeHtml(c.certificateId)}">${escapeHtml(c.unitLabel)} - ${c.year} - ${escapeHtml(c.certificateId)}</option>`).join('') : '<option value="">Nenhuma declaração</option>';
+  if (!ordered.length) { box.innerHTML = '<p class="muted">Nenhuma declaração emitida.</p>'; return; }
   box.innerHTML = ordered.map(c => {
     const unit = importedUnits.find(u => String(u.id) === String(c.unitId));
     const phones = certificatePhones(unit);
     const revoked = c.status === 'REVOKED';
     return `<article class="certificate-row">
-      <div class="certificate-main"><strong>${escapeHtml(c.unitLabel)} â€¢ ${c.year}</strong><span>${escapeHtml(c.certificateId)}</span><small>Emitida: ${new Date(c.issuedAt).toLocaleString('pt-BR')} â€¢ ValidaÃ§Ã£o: ${escapeHtml(c.verificationCode)}</small><small>DestinatÃ¡rio(s): ${escapeHtml(phones.join(' / ') || 'telefone nÃ£o cadastrado')}</small>${revoked ? `<small class="revoked-note">Revogada: ${escapeHtml(c.revocationReason)} â€¢ ${new Date(c.revokedAt).toLocaleString('pt-BR')}</small>` : ''}</div>
-      <div class="certificate-actions"><span class="status-badge ${revoked ? 'attention' : 'ok'}">${revoked ? 'REVOGADA' : 'VÃLIDA'}</span><button class="small-button download-certificate" data-id="${escapeHtml(c.certificateId)}" type="button">Baixar PDF</button>${revoked ? '' : `<button class="small-button share-certificate" data-id="${escapeHtml(c.certificateId)}" type="button">Compartilhar</button><button class="small-button danger-button revoke-certificate" data-id="${escapeHtml(c.certificateId)}" type="button">Revogar</button>`}</div>
+      <div class="certificate-main"><strong>${escapeHtml(c.unitLabel)} • ${c.year}</strong><span>${escapeHtml(c.certificateId)}</span><small>Emitida: ${new Date(c.issuedAt).toLocaleString('pt-BR')} • Validação: ${escapeHtml(c.verificationCode)}</small><small>Destinatário(s): ${escapeHtml(phones.join(' / ') || 'telefone não cadastrado')}</small>${revoked ? `<small class="revoked-note">Revogada: ${escapeHtml(c.revocationReason)} • ${new Date(c.revokedAt).toLocaleString('pt-BR')}</small>` : ''}</div>
+      <div class="certificate-actions"><span class="status-badge ${revoked ? 'attention' : 'ok'}">${revoked ? 'REVOGADA' : 'VÁLIDA'}</span><button class="small-button download-certificate" data-id="${escapeHtml(c.certificateId)}" type="button">Baixar PDF</button>${revoked ? '' : `<button class="small-button share-certificate" data-id="${escapeHtml(c.certificateId)}" type="button">Compartilhar</button><button class="small-button danger-button revoke-certificate" data-id="${escapeHtml(c.certificateId)}" type="button">Revogar</button>`}</div>
     </article>`;
   }).join('');
   document.querySelectorAll('.download-certificate').forEach(b => b.addEventListener('click', () => downloadCertificate(b.dataset.id)));
@@ -824,7 +879,7 @@ async function issueCertificateForUnit(unitId, year, { download = true } = {}) {
   const { record, pdfBytes } = await issueCertificateArtifact({
     residential: residentialData,
     unit: { id: unit.id, label: unit.label ?? `Apartamento ${unit.id}` },
-    responsible: { name: unit.responsibleName ?? 'ResponsÃ¡vel cadastrado' },
+    responsible: { name: unit.responsibleName ?? 'Responsável cadastrado' },
     year: Number(year), issuedAt: new Date().toISOString(), obligations,
   });
   await saveIssuedCertificate(record);
@@ -836,15 +891,15 @@ async function issueCertificateForUnit(unitId, year, { download = true } = {}) {
 }
 
 async function revokeCertificateUi(certificateId) {
-  const reason = window.prompt('Informe o motivo da revogaÃ§Ã£o. O PDF original continuarÃ¡ registrado e nÃ£o serÃ¡ editado:');
+  const reason = window.prompt('Informe o motivo da revogação. O PDF original continuará registrado e não será editado:');
   if (reason == null) return;
   try {
     await revokeStoredCertificate(certificateId, reason);
     certificates = await listCertificates();
     renderCertificateHistory(); renderLedgerCompliance();
-    $('#certificate-feedback').textContent = 'DeclaraÃ§Ã£o revogada. Para corrigir, faÃ§a uma nova emissÃ£o apÃ³s ajustar os dados.';
+    $('#certificate-feedback').textContent = 'Declaração revogada. Para corrigir, faça uma nova emissão após ajustar os dados.';
   } catch (error) {
-    $('#certificate-feedback').textContent = `RevogaÃ§Ã£o nÃ£o realizada: ${error.message}`;
+    $('#certificate-feedback').textContent = `Revogação não realizada: ${error.message}`;
   }
 }
 
@@ -860,7 +915,7 @@ async function issueEligibleBatch() {
     try { await issueCertificateForUnit(unit.id, year, { download: false }); issued += 1; }
     catch { blocked += 1; }
   }
-  $('#certificate-feedback').textContent = `${issued} declaraÃ§Ã£o(Ãµes) gerada(s), ${existing} jÃ¡ existente(s) e ${blocked} unidade(s) bloqueada(s). Use o histÃ³rico para baixar ou compartilhar cada PDF.`;
+  $('#certificate-feedback').textContent = `${issued} declaração(ões) gerada(s), ${existing} já existente(s) e ${blocked} unidade(s) bloqueada(s). Use o histórico para baixar ou compartilhar cada PDF.`;
 }
 
 async function syncClosingDate() {
@@ -875,7 +930,7 @@ async function saveClosingDate() {
   const date = $('#annual-closing-date').value;
   if (!year || !date) return;
   await setSetting(`annualClosingDate:${year}`, date);
-  $('#certificate-feedback').textContent = `Fechamento anual de ${year} configurado para ${date}. Se o aplicativo for aberto nessa data ou depois, as unidades elegÃ­veis poderÃ£o ser geradas em lote.`;
+  $('#certificate-feedback').textContent = `Fechamento anual de ${year} configurado para ${date}. Se o aplicativo for aberto nessa data ou depois, as unidades elegíveis poderão ser geradas em lote.`;
 }
 
 async function maybeAutoIssueCurrentYear() {
@@ -894,12 +949,12 @@ async function validateCertificateFile() {
   const id = $('#validation-certificate').value;
   const file = $('#validation-file').files?.[0];
   const record = certificates.find(c => c.certificateId === id);
-  if (!record || !file) { $('#validation-feedback').textContent = 'Selecione a declaraÃ§Ã£o e o PDF recebido.'; return; }
+  if (!record || !file) { $('#validation-feedback').textContent = 'Selecione a declaração e o PDF recebido.'; return; }
   const check = await verifyCertificateRecord(record, new Uint8Array(await file.arrayBuffer()));
-  if (check.valid) $('#validation-feedback').textContent = 'ÃNTEGRO E VÃLIDO: o arquivo corresponde ao PDF emitido e o registro nÃ£o estÃ¡ revogado.';
-  else if (record.status === 'REVOKED') $('#validation-feedback').textContent = 'ARQUIVO REGISTRADO, MAS DECLARAÃ‡ÃƒO REVOGADA. NÃ£o deve ser aceita como vÃ¡lida.';
-  else if (check.fileIntegrity === false) $('#validation-feedback').textContent = 'FALHA DE INTEGRIDADE: o PDF nÃ£o corresponde ao hash do arquivo originalmente emitido.';
-  else $('#validation-feedback').textContent = 'FALHA DE INTEGRIDADE DO REGISTRO. A declaraÃ§Ã£o nÃ£o deve ser aceita.';
+  if (check.valid) $('#validation-feedback').textContent = 'ÍNTEGRO E VÁLIDO: o arquivo corresponde ao PDF emitido e o registro não está revogado.';
+  else if (record.status === 'REVOKED') $('#validation-feedback').textContent = 'ARQUIVO REGISTRADO, MAS DECLARAÇÃO REVOGADA. Não deve ser aceita como válida.';
+  else if (check.fileIntegrity === false) $('#validation-feedback').textContent = 'FALHA DE INTEGRIDADE: o PDF não corresponde ao hash do arquivo originalmente emitido.';
+  else $('#validation-feedback').textContent = 'FALHA DE INTEGRIDADE DO REGISTRO. A declaração não deve ser aceita.';
 }
 
 function renderLedgerCompliance() {
@@ -907,7 +962,7 @@ function renderLedgerCompliance() {
   const years = [...new Set(ledger.map(o => Number(o.year)).filter(Boolean))].sort((a,b)=>b-a);
   if (!years.length || !importedUnits.length) {
     select.innerHTML = '';
-    $('#compliance-list').innerHTML = '<p class="muted">Cadastre obrigaÃ§Ãµes mensais para iniciar a avaliaÃ§Ã£o oficial de adimplÃªncia.</p>';
+    $('#compliance-list').innerHTML = '<p class="muted">Cadastre obrigações mensais para iniciar a avaliação oficial de adimplência.</p>';
     return;
   }
   const current = Number(select.value) || years[0];
@@ -917,16 +972,16 @@ function renderLedgerCompliance() {
     const obligations = ledger.filter(o => String(o.unitId) === String(unit.id));
     const status = evaluateAnnualCompliance({ obligations, year });
     const existing = activeCertificate(unit.id, year);
-    let label = existing ? `Emitida: ${existing.certificateId}` : 'ElegÃ­vel para emissÃ£o';
-    if (!status.completeYear) label = 'Bloqueada: exercÃ­cio incompleto no livro';
-    else if (status.pending.length) label = `Bloqueada: ${status.pending.length} obrigaÃ§Ã£o(Ãµes) pendente(s)`;
+    let label = existing ? `Emitida: ${existing.certificateId}` : 'Elegível para emissão';
+    if (!status.completeYear) label = 'Bloqueada: exercício incompleto no livro';
+    else if (status.pending.length) label = `Bloqueada: ${status.pending.length} obrigação(ões) pendente(s)`;
     return `<article class="compliance-row"><div><strong>${escapeHtml(unit.label ?? unit.id)}</strong><span>${escapeHtml(unit.responsibleName ?? '')}</span></div><div class="compliance-actions"><span class="status-badge ${status.eligible?'ok':'attention'}">${escapeHtml(label)}</span>${status.eligible && !existing ? `<button class="small-button issue-certificate" data-unit="${escapeHtml(unit.id)}" data-year="${year}" type="button">Emitir PDF</button>` : ''}</div></article>`;
   }).join('');
   document.querySelectorAll('.issue-certificate').forEach(button => button.addEventListener('click', async () => {
     try {
       const record = await issueCertificateForUnit(button.dataset.unit, Number(button.dataset.year));
-      $('#certificate-feedback').textContent = `DeclaraÃ§Ã£o ${record.certificateId} emitida e baixada. O original ficou preservado no histÃ³rico local.`;
-    } catch (error) { $('#certificate-feedback').textContent = `EmissÃ£o bloqueada: ${error.message}`; }
+      $('#certificate-feedback').textContent = `Declaração ${record.certificateId} emitida e baixada. O original ficou preservado no histórico local.`;
+    } catch (error) { $('#certificate-feedback').textContent = `Emissão bloqueada: ${error.message}`; }
   }));
 }
 
@@ -938,7 +993,7 @@ async function refreshImportedData() {
     $('#private-profile-state').textContent = 'Carregado';
     $('#private-profile-state').className = 'status-badge ok';
   } else {
-    $('#private-profile-state').textContent = 'NÃ£o carregado';
+    $('#private-profile-state').textContent = 'Não carregado';
     $('#private-profile-state').className = 'status-badge neutral';
   }
   importedPeriods = periods.sort((a,b)=>a.id.localeCompare(b.id));
@@ -946,18 +1001,18 @@ async function refreshImportedData() {
   importedUnits = units.sort((a,b)=>String(a.id).localeCompare(String(b.id)));
   fillUnitSelectors();
   if (!meta) {
-    $('#import-state').textContent = 'Sem importaÃ§Ã£o';
+    $('#import-state').textContent = 'Sem importação';
     renderUnits(units);
     await refreshLedger();
     return;
   }
   $('#import-state').textContent = 'Base importada'; $('#import-state').className = 'status-badge ok';
   $('#kpi-balance').textContent = money(meta.latestBalanceCents);
-  $('#kpi-balance-period').textContent = meta.latestPeriodId ?? 'â€”';
+  $('#kpi-balance-period').textContent = meta.latestPeriodId ?? '—';
   $('#kpi-periods').textContent = meta.periodCount;
-  $('#kpi-range').textContent = `${meta.startPeriodId ?? 'â€”'} atÃ© ${meta.latestPeriodId ?? 'â€”'}`;
+  $('#kpi-range').textContent = `${meta.startPeriodId ?? '—'} até ${meta.latestPeriodId ?? '—'}`;
   $('#kpi-reconciled').textContent = meta.classifiedCount ?? meta.reconciledCount;
-  $('#kpi-review').textContent = `${meta.reviewCount} revisÃ£o manual â€¢ ${meta.resolvedCount ?? 0} explicada(s) â€¢ ${meta.legacyCount ?? 0} legado`;
+  $('#kpi-review').textContent = `${meta.reviewCount} revisão manual • ${meta.resolvedCount ?? 0} explicada(s) • ${meta.legacyCount ?? 0} legado`;
   $('#kpi-units').textContent = units.length;
   renderUnits(units); renderHistory(periods);
   if (meta.latestBalanceCents != null) $('#cash-balance').value = (meta.latestBalanceCents/100).toFixed(2);
@@ -968,7 +1023,7 @@ async function refreshImportedData() {
 
 async function importSelectedFile() {
   const file = $('#import-file').files?.[0];
-  if (!file) { $('#import-feedback').textContent = 'Selecione o arquivo JSON de importaÃ§Ã£o.'; return; }
+  if (!file) { $('#import-feedback').textContent = 'Selecione o arquivo JSON de importação.'; return; }
   try {
     const bundle = JSON.parse(await file.text());
     validateImportBundle(bundle);
@@ -980,11 +1035,11 @@ async function importSelectedFile() {
     } else {
       await replaceImportedData(bundle, summary);
     }
-    $('#import-feedback').textContent = `ImportaÃ§Ã£o concluÃ­da: ${summary.periodCount} competÃªncias, ${summary.classifiedCount} classificadas e ${summary.reviewCount} em revisÃ£o manual.${privateMeta ? ' O cadastro privado foi preservado.' : ''}`;
+    $('#import-feedback').textContent = `Importação concluída: ${summary.periodCount} competências, ${summary.classifiedCount} classificadas e ${summary.reviewCount} em revisão manual.${privateMeta ? ' O cadastro privado foi preservado.' : ''}`;
     await refreshImportedData();
     await refreshCashbook();
   } catch (error) {
-    $('#import-feedback').textContent = `ImportaÃ§Ã£o nÃ£o realizada: ${error.message}`;
+    $('#import-feedback').textContent = `Importação não realizada: ${error.message}`;
   }
 }
 
@@ -1007,7 +1062,7 @@ function initializeDates() {
 
 async function init() {
   await initializeSecurity();
-  quoteRow({ supplier: 'OrÃ§amento A' });
+  quoteRow({ supplier: 'Orçamento A' });
   initializeDates();
   $('#cash-balance').value = ((await getSetting('cashBalanceCents', 125872)) / 100).toFixed(2);
   $('#protected-reserve').value = ((await getSetting('protectedReserveCents', 0)) / 100).toFixed(2);
@@ -1026,7 +1081,7 @@ async function init() {
   $('#closing-competence').addEventListener('change', async () => { const c=$('#closing-competence').value; $('#movement-date').value=`${c}-01`; $('#water-expense-date').value=`${c}-01`; $('#energy-expense-date').value=`${c}-01`; $('#other-expense-date').value=`${c}-01`; renderClosingView(); });
   $('#closing-opening-balance').addEventListener('input', renderClosingView);
   $('#save-movement').addEventListener('click', addCashMovement);
-  $('#save-water-expense').addEventListener('click', () => saveRequiredExpense('Ãgua'));
+  $('#save-water-expense').addEventListener('click', () => saveRequiredExpense('Água'));
   $('#save-energy-expense').addEventListener('click', () => saveRequiredExpense('Energia'));
   $('#add-other-expense').addEventListener('click', addOtherExpense);
   $('#close-month').addEventListener('click', closeSelectedMonth);
@@ -1043,6 +1098,7 @@ async function init() {
   await refreshCashbook();
   await syncClosingDate();
   await maybeAutoIssueCurrentYear();
+  setupAdminSyncStatus();
   startAdminAutoSync();
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })

@@ -1,4 +1,4 @@
-# Sincronização PostgreSQL — v0.11.0
+# Sincronização PostgreSQL — v0.11.1
 
 A v0.11.0 acrescenta uma camada opcional de sincronização central mantendo o funcionamento offline.
 
@@ -56,3 +56,12 @@ O IndexedDB não desaparece. Ele passa a ser cache operacional/offline, reduzind
 ## Recuperação de aparelho
 
 A tela de sincronização possui **Restaurar do servidor**. A restauração usa o snapshot central e preserva a credencial administrativa local do aparelho.
+
+
+## Estado visível da sincronização
+
+O painel administrativo exibe se o aplicativo está local, offline, aguardando login, sincronizando, sincronizado, em conflito ou com erro. A sessão administrativa remota continua temporária e precisa ser autenticada novamente ao encerrar a sessão do navegador.
+
+## Atualização do morador
+
+Depois da ativação online, o aplicativo do morador mantém uma sessão remota temporária e consulta o snapshot autorizado ao recuperar internet, voltar ao foco ou retornar do segundo plano. O pacote criptografado continua disponível como contingência offline.

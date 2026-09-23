@@ -45,6 +45,12 @@ check(!/private\/|\.private\.json/.test(sw), 'service worker não referencia arq
 check(allText.includes("excludedLocalSecrets: ['securityCredential']"), 'backup declara exclusão da credencial local');
 check(allText.includes("entry?.key === 'securityCredential'") || allText.includes("entry.key === 'securityCredential'"), 'backup filtra securityCredential');
 
+const bomFiles = textFiles.filter(item => item.content.charCodeAt(0) === 0xFEFF).map(item => item.rel);
+const mojibakePattern = /\u00C3[\u0080-\u00BF]|\u00E2(?:\u0080|\u20AC)|\u00F0\u0178|\u00EF\u00BF\u00BD|\uFFFD/u;
+const mojibakeFiles = textFiles.filter(item => mojibakePattern.test(item.content)).map(item => item.rel);
+check(bomFiles.length === 0, `nenhum arquivo textual possui BOM UTF-8${bomFiles.length ? ': ' + bomFiles.join(', ') : ''}`);
+check(mojibakeFiles.length === 0, `nenhum texto público possui codificação corrompida${mojibakeFiles.length ? ': ' + mojibakeFiles.join(', ') : ''}`);
+
 for (const item of passes) console.log(`✔ ${item}`);
 for (const item of failures) console.error(`✘ ${item}`);
 console.log(`\nAuditoria pública: ${passes.length} verificações aprovadas; ${failures.length} falha(s).`);
