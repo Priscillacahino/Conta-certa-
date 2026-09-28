@@ -12,7 +12,7 @@ const binaryExtensions = new Set(['.png','.jpg','.jpeg','.pdf','.zip','.xlsx']);
 
 function walk(dir) {
   for (const entry of fs.readdirSync(dir, { withFileTypes:true })) {
-    if (['.git','node_modules'].includes(entry.name)) continue;
+    if (['.git','node_modules','.venv-security'].includes(entry.name)) continue;
     const full = path.join(dir, entry.name);
     const rel = path.relative(root, full).replaceAll('\\','/');
     if (entry.isDirectory()) {
@@ -21,6 +21,7 @@ function walk(dir) {
     } else {
       check(!entry.name.endsWith('.private.json'), `sem arquivo .private.json publicado: ${rel}`);
       check(!entry.name.endsWith('.ccresident.json'), `sem pacote de morador publicado: ${rel}`);
+      check(!entry.name.endsWith('.ccbackup.json'), `sem backup real publicado: ${rel}`);
       if (!binaryExtensions.has(path.extname(entry.name).toLowerCase())) textFiles.push({ rel, content:fs.readFileSync(full,'utf8') });
     }
   }
@@ -34,6 +35,7 @@ const sw = fs.readFileSync(path.join(root,'sw.js'),'utf8');
 
 check(/(^|\n)private\//m.test(gitignore), '.gitignore bloqueia private/');
 check(/\*\.private\.json/.test(gitignore), '.gitignore bloqueia *.private.json');
+check(/\*\.ccbackup\.json/.test(gitignore), '.gitignore bloqueia *.ccbackup.json');
 check(index.includes('Content-Security-Policy'), 'index possui Content Security Policy');
 check(index.includes('name="referrer" content="no-referrer"'), 'index usa política no-referrer');
 check(!/https?:\/\//i.test(sw), 'service worker não contém endpoint externo');

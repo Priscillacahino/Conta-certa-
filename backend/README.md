@@ -1,16 +1,22 @@
 # Conta Certa — Backend Django + PostgreSQL
 
-Este backend transforma o PostgreSQL na fonte central de sincronização do Conta Certa.
+O backend é a camada central de autenticação e sincronização do Conta Certa.
 
-## Segurança
+## Segurança da v0.12.0
 
-- `DATABASE_URL` fica somente no ambiente do backend.
-- O navegador nunca recebe a senha do PostgreSQL.
-- Administrador usa sessão de API temporária.
-- Morador usa telefone + PIN de 4 dígitos, com bloqueio após tentativas incorretas.
-- A primeira ativação online usa código temporário emitido pelo administrador.
-- Cada morador recebe somente os dados individuais da própria unidade e os fechamentos coletivos autorizados.
-- Toda sincronização administrativa incrementa uma versão e gera evento de auditoria.
+- `DJANGO_SECRET_KEY` é obrigatória fora do desenvolvimento e precisa ter pelo menos 40 caracteres em produção.
+- `DATABASE_URL` é obrigatória quando `DJANGO_ENV=production`; produção não cai silenciosamente para SQLite.
+- `DEBUG=1` é recusado em produção.
+- `ALLOWED_HOSTS` e `CORS_ALLOWED_ORIGINS` são obrigatórios em produção e não aceitam configuração insegura.
+- HTTPS é forçado em produção, com cookies seguros e HSTS inicial.
+- login administrativo possui limitação persistente de tentativas;
+- sessões expiradas são limpas e há limite de sessões ativas por usuário/credencial;
+- sessões de usuário desativado, administrador sem `is_staff`, credencial desativada ou unidade inativa deixam de ser aceitas;
+- códigos antigos de ativação são invalidados quando um novo código é emitido;
+- administrador pode listar e revogar sessões sem conhecer os tokens;
+- o PIN do morador passa a ter 6 dígitos;
+- respostas da API usam `Cache-Control: no-store`;
+- origem web não autorizada recebe HTTP 403.
 
 ## Desenvolvimento local
 
@@ -18,48 +24,52 @@ Este backend transforma o PostgreSQL na fonte central de sincronização do Cont
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
-python manage.py makemigrations core
+
+set DJANGO_DEBUG=1
+set DJANGO_SECRET_KEY=dev-local-change-me
+
 python manage.py migrate
 python manage.py createsuperuser
 python manage.py runserver
 ```
 
-Sem `DATABASE_URL`, o desenvolvimento usa SQLite local. Em produção, configure PostgreSQL.
+Sem `DATABASE_URL`, apenas desenvolvimento usa SQLite.
 
-## Neon
+## Produção
 
-Crie um projeto PostgreSQL e coloque a connection string em `DATABASE_URL` no ambiente do backend, nunca no GitHub.
+Configure no ambiente do backend:
 
-Exemplo de variável:
+- `DJANGO_ENV=production`
+- `DJANGO_SECRET_KEY`
+- `DJANGO_DEBUG=0`
+- `DJANGO_ALLOWED_HOSTS`
+- `DATABASE_URL`
+- `CORS_ALLOWED_ORIGINS`
+- `ENABLE_DJANGO_ADMIN=0`
 
-```text
-DATABASE_URL=postgresql://...?...sslmode=require
+Depois:
+
+```bash
+python manage.py migrate
+python manage.py check --deploy
 ```
 
-## Vercel
-
-Crie um projeto Vercel com **Root Directory = backend** e configure:
-
-- `DATABASE_URL`
-- `DJANGO_SECRET_KEY`
-- `DJANGO_ALLOWED_HOSTS`
-- `CORS_ALLOWED_ORIGINS=https://priscillacahino.github.io`
-
-Antes do primeiro uso do backend, execute as migrations e crie o usuário administrador (`is_staff=True`).
+Crie o usuário administrativo por linha de comando com `createsuperuser`. A interface `/django-admin/` permanece desativada por padrão em produção.
 
 ## Endpoints principais
 
 - `GET /api/health/`
 - `POST /api/auth/admin/login/`
+- `POST /api/auth/logout/`
 - `POST /api/admin/sync/push/`
 - `GET /api/admin/sync/pull/`
 - `POST /api/admin/residents/activation/`
+- `GET /api/admin/sessions/`
+- `POST /api/admin/sessions/revoke/`
 - `POST /api/auth/resident/activate/`
 - `POST /api/auth/resident/login/`
 - `GET /api/resident/snapshot/`
 
-## Migração segura
+## Regra operacional
 
-O IndexedDB atual continua funcionando. A sincronização só é ativada depois que o administrador configurar a URL do backend e fizer login. O primeiro envio cria a cópia central; depois o cliente compara versões e envia somente quando a base local mudou.
-
-O servidor também preserva o último snapshot completo do IndexedDB (sem a credencial local), permitindo restauração controlada em um novo aparelho.
+O PostgreSQL nunca é acessado diretamente pelo navegador. O IndexedDB continua como cache/offline; dados reais não devem depender somente do armazenamento do navegador.

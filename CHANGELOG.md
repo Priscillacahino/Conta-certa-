@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.12.0 — endurecimento de segurança
+
+- produção Django agora falha sem segredo, PostgreSQL, hosts e origens configurados;
+- HTTPS/HSTS/cookies seguros habilitados por ambiente de produção;
+- rate limit persistente no login administrativo;
+- PIN do morador ampliado para 6 dígitos antes do uso real;
+- novo código de ativação invalida códigos anteriores;
+- sessões remotas podem ser listadas e revogadas;
+- logout revoga token no servidor;
+- credencial/unidade desativada invalida sessão existente;
+- URL da API não pode mais ser trocada por parâmetro de link;
+- Django Admin desativado por padrão em produção;
+- auditoria pública passa a bloquear backups .ccbackup.json;
+- corrige template literals escapados incorretamente que ja existiam em src/app.js;
+- documentação de produção e privacidade adicionada.
+
 ## 0.11.1 — estabilidade da sincronização
 
 - corrige BOM UTF-8 e textos com codificação corrompida;

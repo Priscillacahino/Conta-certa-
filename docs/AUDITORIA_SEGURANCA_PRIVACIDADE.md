@@ -1,4 +1,4 @@
-# Auditoria de segurança e privacidade — v0.9.1
+# Auditoria de segurança e privacidade — v0.12.0
 
 Esta revisão é voltada ao MVP local/offline do Conta Certa. Ela reduz riscos previsíveis, mas não transforma uma PWA local em cofre criptográfico contra um atacante com controle total do aparelho ou do perfil do navegador.
 
@@ -16,6 +16,10 @@ Esta revisão é voltada ao MVP local/offline do Conta Certa. Ela reduz riscos p
 - `securityCredential` excluída do backup e preservada no aparelho durante a restauração;
 - `private/` e `*.private.json` continuam ignorados pelo Git;
 - auditoria automatizada do pacote público disponível em `npm run audit:privacy`.
+
+- backend com configuração fail-closed em produção, rate limit persistente no login administrativo, códigos de ativação substituíveis e sessões revogáveis;
+- PIN do morador ampliado para 6 dígitos antes do uso real;
+- URL da API não pode mais ser injetada silenciosamente por parâmetro de link.
 
 ## Riscos residuais conhecidos
 

@@ -2,11 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-test('área do morador possui login por telefone e PIN de quatro dígitos', () => {
+test('área do morador possui login por telefone e PIN de seis dígitos', () => {
   const html = readFileSync(new URL('../morador.html', import.meta.url), 'utf8');
   assert.match(html, /id="resident-login-phone"/);
   assert.match(html, /id="resident-login-pin"/);
-  assert.match(html, /pattern="\[0-9\]\{4\}"/);
+  assert.match(html, /pattern="\[0-9\]\{6\}"/);
   assert.match(html, /id="resident-view-contributions"/);
   assert.match(html, /id="resident-view-statements"/);
   assert.match(html, /id="resident-view-documents"/);

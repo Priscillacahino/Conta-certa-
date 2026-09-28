@@ -259,7 +259,7 @@ async function activateResident(event) {
   } catch (error) {
     const message = ({
       TELEFONE_NAO_AUTORIZADO:'Este telefone não consta como autorizado no cadastro desta unidade.',
-      PIN_MORADOR_INVALIDO:'A senha deve ter exatamente 4 números.',
+      PIN_MORADOR_INVALIDO:'A senha deve ter exatamente 6 números.',
       PACOTE_MORADOR_CHAVE_INVALIDA:'Arquivo ou chave de ativação inválidos.',
       TOKEN_ATIVACAO_INVALIDO:'Chave de ativação inválida.',
       ATIVACAO_INVALIDA:'Código de ativação online inválido ou expirado.',

@@ -1,4 +1,4 @@
-# Perfil do morador — Conta Certa v0.10.0
+# Perfil do morador — Conta Certa v0.12.0
 
 ## Objetivo
 
@@ -10,23 +10,23 @@ O link de instalação é distribuído diretamente pelo administrador e não dev
 
 ## Primeira ativação
 
-Por segurança, a primeira ativação não depende apenas de telefone + PIN de 4 dígitos.
+Por segurança, a primeira ativação não depende apenas de telefone + PIN de 6 dígitos.
 
 O administrador gera, para uma unidade específica:
 
 1. um arquivo criptografado `.ccresident.json`;
 2. uma chave de ativação aleatória de alta entropia.
 
-O morador importa o arquivo, informa a chave de ativação, digita um dos telefones cadastrados para a unidade e cria uma senha numérica de 4 dígitos.
+O morador importa o arquivo, informa a chave de ativação, digita um dos telefones cadastrados para a unidade e cria uma senha numérica de 6 dígitos.
 
 Depois da ativação, o uso diário exige apenas:
 
 - telefone cadastrado;
-- senha numérica de 4 dígitos.
+- senha numérica de 6 dígitos.
 
-## Segurança do PIN de 4 dígitos
+## Segurança do PIN de 6 dígitos
 
-O PIN de 4 dígitos foi escolhido para facilidade de uso, não como segredo de alta entropia. A interface aplica limite de tentativas e bloqueio temporário. O cofre local é criptografado com PBKDF2 + AES-GCM, mas um PIN de quatro dígitos não deve ser considerado equivalente a uma senha forte contra um atacante que consiga extrair e analisar o armazenamento do aparelho fora do aplicativo.
+O PIN de 6 dígitos foi escolhido para facilidade de uso, não como segredo de alta entropia. A interface aplica limite de tentativas e bloqueio temporário. O cofre local é criptografado com PBKDF2 + AES-GCM, mas um PIN de seis dígitos não deve ser considerado equivalente a uma senha forte contra um atacante que consiga extrair e analisar o armazenamento do aparelho fora do aplicativo.
 
 O aparelho do morador deve continuar protegido por senha, biometria ou bloqueio de tela.
 
@@ -46,11 +46,11 @@ O pacote não inclui nomes, telefones, obrigações ou pagamentos individuais de
 
 ## Atualização de dados
 
-A versão v0.10.0 continua offline-first e **não possui sincronização automática entre aparelhos**. Quando os dados mudarem, o administrador deverá gerar um novo pacote da unidade e enviá-lo ao morador. O morador poderá atualizar os dados na própria área de consulta sem trocar seu PIN.
+A versão v0.12.0 continua offline-first e **não possui sincronização automática entre aparelhos**. Quando os dados mudarem, o administrador deverá gerar um novo pacote da unidade e enviá-lo ao morador. O morador poderá atualizar os dados na própria área de consulta sem trocar seu PIN.
 
 ## Revogação
 
-Como não existe servidor central, não há revogação remota de uma instalação já ativada. A exclusão do acesso em um aparelho depende da remoção local dos dados. Um pacote antigo continua representando apenas o retrato dos dados na data em que foi gerado e não recebe atualizações posteriores.
+Quando o backend está configurado, o administrador pode revogar sessões remotas. O cofre offline já gravado no aparelho continua exigindo remoção local ou atualização operacional. A exclusão do acesso em um aparelho depende da remoção local dos dados. Um pacote antigo continua representando apenas o retrato dos dados na data em que foi gerado e não recebe atualizações posteriores.
 
 ## Distribuição
 

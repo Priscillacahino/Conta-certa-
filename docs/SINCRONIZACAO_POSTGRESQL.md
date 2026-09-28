@@ -23,7 +23,7 @@ Cada residencial possui `sync_version`. Um cliente que tentar enviar uma versão
 ## Morador
 
 O modo online permite:
-- primeira ativação por telefone + código temporário + PIN de 4 dígitos;
+- primeira ativação por telefone + código temporário + PIN de 6 dígitos;
 - login cotidiano por telefone + PIN;
 - bloqueio temporário após tentativas incorretas;
 - consulta somente dos dados da própria unidade e dos fechamentos coletivos;

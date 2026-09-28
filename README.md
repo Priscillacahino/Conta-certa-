@@ -12,7 +12,7 @@ A proposta é reunir em uma ferramenta simples o que pequenos residenciais norma
 
 ### Usuário não administrador
 
-A partir da v0.10.0 existe uma **área do morador separada e somente leitura**. A primeira ativação usa um pacote criptografado individual da unidade e uma chave de ativação gerados pelo administrador. Depois de ativado, o login cotidiano é feito com o telefone cadastrado e um PIN numérico de 4 dígitos. A versão offline não sincroniza automaticamente entre aparelhos: o administrador envia um novo pacote quando houver atualização dos dados.
+A partir da v0.10.0 existe uma **área do morador separada e somente leitura**. A primeira ativação usa um pacote criptografado individual da unidade e uma chave de ativação gerados pelo administrador. Depois de ativado, o login cotidiano é feito com o telefone cadastrado e um PIN numérico de 6 dígitos. A versão offline não sincroniza automaticamente entre aparelhos: o administrador envia um novo pacote quando houver atualização dos dados.
 
 ### Administrador
 
@@ -178,12 +178,12 @@ A emissão anual será autorizada somente pelo **livro de obrigações do Conta 
 
 ## Sincronização PostgreSQL
 
-A v0.11.0 adiciona uma camada opcional de sincronização com **Django + PostgreSQL**, mantendo o IndexedDB como cache/offline. O PostgreSQL não é acessado diretamente pelo navegador: toda comunicação passa por uma API HTTPS com autenticação e autorização por perfil.
+A v0.11.0 adicionou uma camada de sincronização com **Django + PostgreSQL**, mantendo o IndexedDB como cache/offline. O PostgreSQL não é acessado diretamente pelo navegador: toda comunicação passa por uma API HTTPS com autenticação e autorização por perfil.
 
-O administrador pode manter a operação local durante a implantação e enviar uma cópia do banco para o servidor. O morador pode usar ativação online e, depois, entrar com telefone cadastrado + PIN de 4 dígitos. Consulte [docs/SINCRONIZACAO_POSTGRESQL.md](docs/SINCRONIZACAO_POSTGRESQL.md).
+O administrador pode manter a operação local durante a implantação e enviar uma cópia do banco para o servidor. O morador pode usar ativação online e, depois, entrar com telefone cadastrado + PIN de 6 dígitos. Consulte [docs/SINCRONIZACAO_POSTGRESQL.md](docs/SINCRONIZACAO_POSTGRESQL.md).
 ## Status
 
-🚧 **Em desenvolvimento — v0.11.1 (PostgreSQL, API Django e sincronização automática).**
+🚧 **Em desenvolvimento — v0.12.0 (endurecimento de segurança, sessões revogáveis e sincronização protegida).**
 
 A planilha histórica real será utilizada para validação e migração dos dados, sem expor nomes de moradores, telefones ou endereço completo nos dados públicos de demonstração.
 
@@ -203,3 +203,7 @@ npm run verify
 
 O comando executa toda a suíte de testes e, em seguida, verifica regras de publicação segura, exclusão de arquivos privados, CSP, política de referência, cache do Service Worker e padrões comuns de credenciais acidentalmente publicadas. Limitações e riscos residuais estão documentados em [`docs/AUDITORIA_SEGURANCA_PRIVACIDADE.md`](docs/AUDITORIA_SEGURANCA_PRIVACIDADE.md).
 
+
+## Segurança para produção
+
+A v0.12.0 endurece autenticação, sessões e configuração do backend. Para critérios de implantação segura, consulte [docs/SEGURANCA_PRODUCAO.md](docs/SEGURANCA_PRODUCAO.md) e [docs/PRIVACIDADE_LGPD.md](docs/PRIVACIDADE_LGPD.md).

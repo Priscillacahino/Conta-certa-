@@ -7,10 +7,10 @@
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https: http://localhost:* http://127.0.0.1:*; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'; worker-src 'self'">
   <meta name="description" content="Conta Certa — gestão financeira compartilhada para pequenos condomínios.">
-  <link rel="manifest" href="manifest.webmanifest?v=0111">
+  <link rel="manifest" href="manifest.webmanifest?v=0120">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-  <link rel="stylesheet" href="styles.css?v=0111">
+  <link rel="stylesheet" href="styles.css?v=0120">
   <title>Conta Certa</title>
 </head>
 <body class="app-locked">
@@ -21,8 +21,8 @@
       <h2 id="security-title">Conta Certa protegido</h2>
       <p id="security-help">Informe seu PIN ou senha para acessar os dados financeiros.</p>
       <form id="security-form">
-        <label>PIN ou senha<input id="security-secret" type="password" minlength="6" maxlength="128" autocomplete="current-password" required></label>
-        <label id="security-confirm-wrap" hidden>Confirmar PIN ou senha<input id="security-confirm" type="password" minlength="6" maxlength="128" autocomplete="new-password"></label>
+        <label>PIN ou senha<input id="security-secret" type="password" minlength="8" maxlength="128" autocomplete="current-password" required></label>
+        <label id="security-confirm-wrap" hidden>Confirmar PIN ou senha<input id="security-confirm" type="password" minlength="8" maxlength="128" autocomplete="new-password"></label>
         <button id="security-submit" type="submit">Desbloquear</button>
       </form>
       <p id="security-feedback" class="feedback" role="status"></p>
@@ -352,8 +352,8 @@
     </section>
   </main>
 
-  <footer>Conta Certa • v0.11.0 - PostgreSQL e sincronizacao automatica</footer>
-  <script type="module" src="src/app.js?v=0111"></script>
+  <footer>Conta Certa • v0.12.0 - endurecimento de seguranca</footer>
+  <script type="module" src="src/app.js?v=0120"></script>
 </body>
 </html>
 

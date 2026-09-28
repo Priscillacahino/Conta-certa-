@@ -42,7 +42,7 @@ export function normalizePhoneDigits(value) {
 
 export function validateResidentPin(pin) {
   const value = String(pin ?? '');
-  if (!/^\d{4}$/.test(value)) throw new Error('PIN_MORADOR_INVALIDO');
+  if (!/^\d{6}$/.test(value)) throw new Error('PIN_MORADOR_INVALIDO');
   return value;
 }
 

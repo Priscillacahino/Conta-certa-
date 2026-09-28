@@ -11,6 +11,8 @@ function normalizeApiUrl(value) {
   const text = String(value ?? '').trim().replace(/\/+$/, '');
   if (!text) return '';
   const url = new URL(text);
+  if (url.username || url.password) throw new Error('API_URL_NAO_PODE_CONTER_CREDENCIAIS');
+  if (url.search || url.hash) throw new Error('API_URL_NAO_PODE_CONTER_PARAMETROS');
   if (url.protocol !== 'https:' && !(url.hostname === 'localhost' || url.hostname === '127.0.0.1')) {
     throw new Error('API_HTTPS_OBRIGATORIO');
   }
@@ -21,17 +23,9 @@ function dispatchSync(detail) {
   window.dispatchEvent(new CustomEvent('conta-certa-sync', { detail }));
 }
 
+// Por segurança, links não podem mais trocar silenciosamente o servidor da API.
 export function captureApiBaseUrlFromLocation() {
-  const params = new URLSearchParams(location.search);
-  const raw = params.get('api');
-  if (!raw) return getApiBaseUrl();
-  try {
-    const normalized = normalizeApiUrl(raw);
-    localStorage.setItem(API_KEY, normalized);
-    return normalized;
-  } catch {
-    return getApiBaseUrl();
-  }
+  return getApiBaseUrl();
 }
 
 export function getApiBaseUrl() {
@@ -65,6 +59,8 @@ async function api(path, { method='GET', token='', body=null } = {}) {
     },
     body: body == null ? undefined : JSON.stringify(body),
     cache: 'no-store',
+    credentials: 'omit',
+    referrerPolicy: 'no-referrer',
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -81,6 +77,11 @@ export async function healthCheck() {
 }
 
 export async function adminLogin(username, password) {
+  const previous = sessionStorage.getItem(ADMIN_TOKEN_KEY) || '';
+  if (previous) {
+    try { await api('/api/auth/logout/', { method:'POST', token:previous }); } catch {}
+    sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+  }
   const data = await api('/api/auth/admin/login/', {
     method:'POST',
     body:{ username, password },
@@ -90,9 +91,30 @@ export async function adminLogin(username, password) {
   return data;
 }
 
-export function clearAdminRemoteSession() {
+export async function clearAdminRemoteSession({ revoke=true } = {}) {
+  const token = sessionStorage.getItem(ADMIN_TOKEN_KEY) || '';
   sessionStorage.removeItem(ADMIN_TOKEN_KEY);
   dispatchSync({ authenticated:false, reason:'login-required' });
+  if (revoke && token && getApiBaseUrl()) {
+    try { await api('/api/auth/logout/', { method:'POST', token }); } catch {}
+  }
+}
+
+export async function listRemoteSessions() {
+  const token = sessionStorage.getItem(ADMIN_TOKEN_KEY) || '';
+  if (!token) throw new Error('SESSAO_ADMIN_AUSENTE');
+  return api('/api/admin/sessions/', { token });
+}
+
+export async function revokeRemoteSession(sessionId) {
+  const token = sessionStorage.getItem(ADMIN_TOKEN_KEY) || '';
+  if (!token) throw new Error('SESSAO_ADMIN_AUSENTE');
+  const data = await api('/api/admin/sessions/revoke/', {
+    method:'POST',
+    token,
+    body:{ sessionId },
+  });
+  return data;
 }
 
 export async function issueResidentActivation({ residentialId, unitId, phone }) {
@@ -126,7 +148,7 @@ export async function syncAdminNow({ force=false } = {}) {
   const token = sessionStorage.getItem(ADMIN_TOKEN_KEY) || '';
   if (!getApiBaseUrl()) return { skipped:true, reason:'not-configured' };
   if (!token) return { skipped:true, reason:'login-required' };
-  const snapshot = await exportDatabaseSnapshot('0.11.1');
+  const snapshot = await exportDatabaseSnapshot('0.12.0');
   const serialized = JSON.stringify(snapshot);
   const hash = await sha256Text(serialized);
   if (!force && hash === localStorage.getItem(ADMIN_HASH_KEY)) {
@@ -167,6 +189,9 @@ async function safeSync() {
     const result = await syncAdminNow();
     if (result?.skipped) dispatchSync({ ok:true, ...result });
   } catch (error) {
+    if (error.status === 401) {
+      await clearAdminRemoteSession({ revoke:false });
+    }
     dispatchSync({
       ok:false,
       error:error.message,
@@ -193,8 +218,12 @@ function storeResidentToken(data) {
   if (data?.token) sessionStorage.setItem(RESIDENT_TOKEN_KEY, data.token);
 }
 
-export function clearResidentRemoteSession() {
+export async function clearResidentRemoteSession({ revoke=true } = {}) {
+  const token = sessionStorage.getItem(RESIDENT_TOKEN_KEY) || '';
   sessionStorage.removeItem(RESIDENT_TOKEN_KEY);
+  if (revoke && token && getApiBaseUrl()) {
+    try { await api('/api/auth/logout/', { method:'POST', token }); } catch {}
+  }
 }
 
 export async function activateResidentRemote({ phone, activationCode, pin }) {
@@ -218,7 +247,7 @@ export async function refreshResidentRemote({ phone='', pin='' } = {}) {
       return await fetchResidentSnapshotRemote();
     } catch (error) {
       if (error.status !== 401) throw error;
-      clearResidentRemoteSession();
+      await clearResidentRemoteSession({ revoke:false });
     }
   }
   if (!phone || !pin) throw new Error('SESSAO_REMOTA_MORADOR_AUSENTE');

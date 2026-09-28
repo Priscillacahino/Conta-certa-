@@ -2,7 +2,7 @@
 
 A partir da v0.8, o Conta Certa exige uma credencial local antes de liberar a interface financeira.
 
-- PIN/senha com no mínimo 6 caracteres;
+- PIN/senha com no mínimo 8 caracteres;
 - derivação PBKDF2 com SHA-256, salt aleatório e 210.000 iterações;
 - somente o verificador derivado é armazenado no IndexedDB;
 - sessão em memória com bloqueio após 10 minutos sem atividade;

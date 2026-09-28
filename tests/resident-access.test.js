@@ -8,9 +8,9 @@ import {
 
 test('telefone e PIN do morador são normalizados/validados', () => {
   assert.equal(normalizePhoneDigits('+55 (83) 99999-0000'), '5583999990000');
-  assert.equal(validateResidentPin('0427'), '0427');
+  assert.equal(validateResidentPin('042731'), '042731');
   assert.throws(() => validateResidentPin('12345'), /PIN_MORADOR_INVALIDO/);
-  assert.throws(() => validateResidentPin('12a4'), /PIN_MORADOR_INVALIDO/);
+  assert.throws(() => validateResidentPin('12a456'), /PIN_MORADOR_INVALIDO/);
 });
 
 test('pacote do morador não inclui dados de outras unidades e preserva despesas discriminadas', async () => {
@@ -41,16 +41,16 @@ test('pacote do morador não inclui dados de outras unidades e preserva despesas
   await assert.rejects(() => decryptResidentPackage(encrypted, createActivationToken()), /PACOTE_MORADOR_CHAVE_INVALIDA/);
 });
 
-test('login diário usa telefone cadastrado e PIN numérico de quatro dígitos', async () => {
+test('login diário usa telefone cadastrado e PIN numérico de seis dígitos', async () => {
   const payload = {
     schemaVersion:1,profileType:'resident-readonly',generatedAt:'2026-09-21T12:00:00Z',
     residential:{id:'r1',name:'Residencial Teste'},unit:{id:'103',label:'AP 103',responsibleName:'Morador'},
     allowedPhones:['5583999990000'],obligations:[{amountCents:19000,paidCents:0,status:'open'}],payments:[],closings:[],certificates:[]
   };
-  const vault = await createResidentVault(payload, '+55 83 99999-0000', '0427', { iterations: 150000 });
-  const opened = await openResidentVault(vault, '5583999990000', '0427');
+  const vault = await createResidentVault(payload, '+55 83 99999-0000', '042731', { iterations: 150000 });
+  const opened = await openResidentVault(vault, '5583999990000', '042731');
   assert.equal(opened.unit.id, '103');
   assert.equal(residentOutstandingCents(opened), 19000);
-  await assert.rejects(() => openResidentVault(vault, '5583999990000', '1111'), /LOGIN_MORADOR_INVALIDO/);
-  await assert.rejects(() => createResidentVault(payload, '5583988880000', '0427', { iterations: 150000 }), /TELEFONE_NAO_AUTORIZADO/);
+  await assert.rejects(() => openResidentVault(vault, '5583999990000', '111111'), /LOGIN_MORADOR_INVALIDO/);
+  await assert.rejects(() => createResidentVault(payload, '5583988880000', '042731', { iterations: 150000 }), /TELEFONE_NAO_AUTORIZADO/);
 });

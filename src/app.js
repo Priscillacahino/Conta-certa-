@@ -124,7 +124,7 @@ function setSecurityGate({ setup = false, message = '' } = {}) {
   securitySetupMode = setup;
   $('#security-title').textContent = setup ? 'Criar proteção do Conta Certa' : 'Conta Certa protegido';
   $('#security-help').textContent = setup
-    ? 'Crie um PIN ou senha com pelo menos 6 caracteres. Ele será necessário para abrir os dados neste aparelho.'
+    ? 'Crie um PIN ou senha com pelo menos 8 caracteres. Ele será necessário para abrir os dados neste aparelho.'
     : 'Informe seu PIN ou senha para acessar os dados financeiros.';
   $('#security-submit').textContent = setup ? 'Criar proteção e entrar' : 'Desbloquear';
   $('#security-confirm-wrap').hidden = !setup;
@@ -170,7 +170,7 @@ async function handleSecuritySubmit(event) {
       unlockApplication();
     } catch (error) {
       $('#security-feedback').textContent = error.message === 'SEGREDO_MUITO_CURTO'
-        ? 'Use pelo menos 6 caracteres.' : `Não foi possível criar a proteção: ${error.message}`;
+        ? 'Use pelo menos 8 caracteres.' : `Não foi possível criar a proteção: ${error.message}`;
     }
     return;
   }
@@ -253,7 +253,7 @@ async function createEncryptedBackup() {
   const confirmation = $('#backup-confirm').value;
   if (passphrase !== confirmation) { $('#backup-feedback').textContent = 'As senhas do backup não conferem.'; return; }
   try {
-    const snapshot = await exportDatabaseSnapshot('0.11.0');
+    const snapshot = await exportDatabaseSnapshot('0.12.0');
     const envelope = await encryptSnapshot(snapshot, passphrase);
     const stamp = new Date().toISOString().slice(0,10);
     downloadJson(envelope, `Conta_Certa_backup_${stamp}.ccbackup.json`);
@@ -440,11 +440,11 @@ function renderClosingView() {
   if (prior.blocked) {
     openingInput.value = '';
     openingInput.readOnly = true;
-    $('#closing-feedback').textContent = \`Não é possível fechar \${competence}: a competência anterior (\${prior.competence}) está reaberta.\`;
+    $('#closing-feedback').textContent = `Não é possível fechar ${competence}: a competência anterior (${prior.competence}) está reaberta.`;
   } else if (prior.value != null) {
     openingInput.value = (prior.value / 100).toFixed(2);
     openingInput.readOnly = true;
-    $('#opening-balance-source').textContent = prior.source === 'closing' ? \`Transportado do fechamento de \${prior.competence}\` : \`Transportado do histórico de \${prior.competence}\`;
+    $('#opening-balance-source').textContent = prior.source === 'closing' ? `Transportado do fechamento de ${prior.competence}` : `Transportado do histórico de ${prior.competence}`;
   } else {
     if (!openingInput.value) openingInput.value = '0.00';
     openingInput.readOnly = false;
@@ -458,8 +458,8 @@ function renderClosingView() {
   $('#closing-result').textContent = money(summary.resultCents);
   $('#closing-balance').textContent = money(summary.closingBalanceCents);
   const state = $('#closing-state');
-  state.textContent = existing?.status === 'closed' ? \`Fechado - rev. \${existing.revision}\` : existing?.status === 'reopened' ? \`Reaberto - rev. \${existing.revision}\` : 'Em aberto';
-  state.className = \`status-badge \${existing?.status === 'closed' ? 'ok' : existing?.status === 'reopened' ? 'attention' : 'neutral'}\`;
+  state.textContent = existing?.status === 'closed' ? `Fechado - rev. ${existing.revision}` : existing?.status === 'reopened' ? `Reaberto - rev. ${existing.revision}` : 'Em aberto';
+  state.className = `status-badge ${existing?.status === 'closed' ? 'ok' : existing?.status === 'reopened' ? 'attention' : 'neutral'}`;
   const locked = existing?.status === 'closed';
   $('#close-month').disabled = Boolean(locked || prior.blocked);
   $('#reopen-month').disabled = existing?.status !== 'closed';
@@ -468,7 +468,7 @@ function renderClosingView() {
   renderRequiredExpenseForm({ disabled: locked });
 
   const rows = movementRowsFor(competence);
-  $('#closing-movements').innerHTML = rows.length ? rows.map(r => \`<article class="cash-row"><div><strong>\${escapeHtml(r.description)}</strong><small>\${escapeHtml(String(r.date).slice(0,10))} • \${escapeHtml(r.source)}\${r.category ? \` • \${escapeHtml(r.category)}\` : ''}</small></div><span class="\${r.kind === 'expense' ? 'negative' : 'positive'}">\${r.kind === 'expense' ? '-' : '+'} \${money(r.amountCents)}</span></article>\`).join('') : '<p class="muted">Nenhuma movimentação financeira nesta competência.</p>';
+  $('#closing-movements').innerHTML = rows.length ? rows.map(r => `<article class="cash-row"><div><strong>${escapeHtml(r.description)}</strong><small>${escapeHtml(String(r.date).slice(0,10))} • ${escapeHtml(r.source)}${r.category ? ` • ${escapeHtml(r.category)}` : ''}</small></div><span class="${r.kind === 'expense' ? 'negative' : 'positive'}">${r.kind === 'expense' ? '-' : '+'} ${money(r.amountCents)}</span></article>`).join('') : '<p class="muted">Nenhuma movimentação financeira nesta competência.</p>';
 }
 
 async function refreshCashbook() {
@@ -659,12 +659,12 @@ function renderObligations() {
     const unit = unitsById.get(String(o.unitId));
     const pending = outstandingCents(o);
     const statusLabel = o.status === 'paid' ? 'Quitada' : o.status === 'partial' ? 'Parcial' : o.status === 'cancelled' ? 'Cancelada' : 'Em aberto';
-    const cancellation = o.status === 'cancelled' && o.cancellationReason ? \`<small>Cancelamento: \${escapeHtml(o.cancellationReason)}</small>\` : '';
+    const cancellation = o.status === 'cancelled' && o.cancellationReason ? `<small>Cancelamento: ${escapeHtml(o.cancellationReason)}</small>` : '';
     const canCancel = o.status === 'open' && (o.paidCents ?? 0) === 0;
-    return \`<article class="obligation-row">
-      <div class="obligation-main"><strong>\${escapeHtml(unit?.label ?? \`Unidade \${o.unitId}\`)} • \${escapeHtml(kindLabel(o.kind))}</strong><span>\${escapeHtml(o.description ?? '')}</span><small>Vencimento: \${escapeHtml(o.dueDate ?? 'não informado')} • Total: \${money(o.amountCents)}\${o.paidCents ? \` • Pago: \${money(o.paidCents)}\` : ''}</small>\${cancellation}</div>
-      <div class="obligation-actions"><span class="status-badge \${o.status === 'paid' ? 'ok' : o.status === 'cancelled' ? 'neutral' : 'attention'}">\${escapeHtml(statusLabel)}\${pending ? \` • falta \${money(pending)}\` : ''}</span>\${o.status !== 'paid' && o.status !== 'cancelled' ? \`<button type="button" class="small-button pay-obligation" data-id="\${escapeHtml(o.id)}">Registrar pagamento</button>\` : ''}\${canCancel ? \`<button type="button" class="small-button danger-button cancel-obligation" data-id="\${escapeHtml(o.id)}">Cancelar obrigação</button>\` : ''}</div>
-    </article>\`;
+    return `<article class="obligation-row">
+      <div class="obligation-main"><strong>${escapeHtml(unit?.label ?? `Unidade ${o.unitId}`)} • ${escapeHtml(kindLabel(o.kind))}</strong><span>${escapeHtml(o.description ?? '')}</span><small>Vencimento: ${escapeHtml(o.dueDate ?? 'não informado')} • Total: ${money(o.amountCents)}${o.paidCents ? ` • Pago: ${money(o.paidCents)}` : ''}</small>${cancellation}</div>
+      <div class="obligation-actions"><span class="status-badge ${o.status === 'paid' ? 'ok' : o.status === 'cancelled' ? 'neutral' : 'attention'}">${escapeHtml(statusLabel)}${pending ? ` • falta ${money(pending)}` : ''}</span>${o.status !== 'paid' && o.status !== 'cancelled' ? `<button type="button" class="small-button pay-obligation" data-id="${escapeHtml(o.id)}">Registrar pagamento</button>` : ''}${canCancel ? `<button type="button" class="small-button danger-button cancel-obligation" data-id="${escapeHtml(o.id)}">Cancelar obrigação</button>` : ''}</div>
+    </article>`;
   }).join('');
   document.querySelectorAll('.pay-obligation').forEach(button => button.addEventListener('click', () => payObligation(button.dataset.id)));
   document.querySelectorAll('.cancel-obligation').forEach(button => button.addEventListener('click', () => cancelObligationUi(button.dataset.id)));
@@ -750,7 +750,7 @@ async function cancelObligationUi(id) {
   if (!obligation) return;
   const reason = window.prompt('Informe o motivo do cancelamento. O registro continuará no histórico:', 'Lançamento de teste');
   if (reason == null) return;
-  if (!window.confirm(\`Cancelar esta obrigação de \${money(obligation.amountCents)}? O registro ficará marcado como CANCELADO.\`)) return;
+  if (!window.confirm(`Cancelar esta obrigação de ${money(obligation.amountCents)}? O registro ficará marcado como CANCELADO.`)) return;
   try {
     const updated = cancelObligation(obligation, reason);
     await saveObligation(updated);
@@ -763,7 +763,7 @@ async function cancelObligationUi(id) {
         ? 'A competência desta obrigação está fechada e não pode ser alterada.'
         : error.message === 'MOTIVO_CANCELAMENTO_OBRIGATORIO'
           ? 'Informe um motivo com pelo menos 5 caracteres.'
-          : \`Cancelamento não realizado: \${error.message}\`;
+          : `Cancelamento não realizado: ${error.message}`;
   }
 }
 

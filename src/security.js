@@ -1,5 +1,5 @@
 const DEFAULT_ITERATIONS = 210000;
-const MIN_SECRET_LENGTH = 6;
+const MIN_SECRET_LENGTH = 8;
 const MAX_SECRET_LENGTH = 128;
 
 function getCrypto() {

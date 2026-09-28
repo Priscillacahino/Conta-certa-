@@ -7,11 +7,11 @@
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' https: http://localhost:* http://127.0.0.1:*; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'; worker-src 'self'">
   <meta name="description" content="Área do morador do Conta Certa.">
-  <link rel="manifest" href="manifest-morador.webmanifest?v=0111">
+  <link rel="manifest" href="manifest-morador.webmanifest?v=0120">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-  <link rel="stylesheet" href="styles.css?v=0111">
-  <link rel="stylesheet" href="resident.css?v=0111">
+  <link rel="stylesheet" href="styles.css?v=0120">
+  <link rel="stylesheet" href="resident.css?v=0120">
   <title>Conta Certa — Morador</title>
 </head>
 <body class="resident-body resident-locked">
@@ -23,13 +23,13 @@
 
       <section id="resident-login-panel" hidden>
         <h2>Entrar</h2>
-        <p>Use o telefone cadastrado no residencial e sua senha numérica de 4 dígitos.</p>
+        <p>Use o telefone cadastrado no residencial e sua senha numérica de 6 dígitos.</p>
         <form id="resident-login-form" class="resident-form">
           <label>Telefone cadastrado
             <input id="resident-login-phone" type="tel" inputmode="tel" autocomplete="tel" required placeholder="(83) 99999-9999">
           </label>
-          <label>Senha de 4 dígitos
-            <input id="resident-login-pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="current-password" required placeholder="••••">
+          <label>Senha de 6 dígitos
+            <input id="resident-login-pin" type="password" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="current-password" required placeholder="••••">
           </label>
           <button type="submit">Entrar</button>
         </form>
@@ -53,18 +53,18 @@
           <label>Telefone cadastrado
             <input id="resident-activation-phone" type="tel" inputmode="tel" autocomplete="tel" required placeholder="(83) 99999-9999">
           </label>
-          <label>Crie sua senha de 4 dígitos
-            <input id="resident-new-pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="new-password" required placeholder="••••">
+          <label>Crie sua senha de 6 dígitos
+            <input id="resident-new-pin" type="password" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="new-password" required placeholder="••••">
           </label>
           <label>Confirme a senha
-            <input id="resident-confirm-pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="new-password" required placeholder="••••">
+            <input id="resident-confirm-pin" type="password" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="new-password" required placeholder="••••">
           </label>
           <button type="submit">Ativar e entrar</button>
         </form>
         <p id="resident-activation-feedback" class="feedback" role="status"></p>
       </section>
 
-      <small class="resident-security-note">A senha de 4 dígitos protege o acesso cotidiano neste aparelho. O código online ou o pacote de contingência devem ser recebidos diretamente do administrador.</small>
+      <small class="resident-security-note">A senha de 6 dígitos protege o acesso cotidiano neste aparelho. O código online ou o pacote de contingência devem ser recebidos diretamente do administrador.</small>
     </div>
   </section>
 
@@ -141,7 +141,7 @@
           <label>Novo arquivo de acesso<input id="resident-update-file" type="file" accept="application/json,.json,.ccresident.json" required></label>
           <label>Nova chave de ativação<input id="resident-update-token" type="text" autocomplete="off" required placeholder="CCA1-..."></label>
           <label>Seu telefone<input id="resident-update-phone" type="tel" inputmode="tel" autocomplete="tel" required></label>
-          <label>Sua senha de 4 dígitos<input id="resident-update-pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="current-password" required></label>
+          <label>Sua senha de 6 dígitos<input id="resident-update-pin" type="password" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="current-password" required></label>
           <button type="submit">Atualizar dados</button>
         </form>
         <p id="resident-update-feedback" class="feedback" role="status"></p>
@@ -154,7 +154,7 @@
     </section>
   </main>
 
-  <script type="module" src="src/resident.js?v=0111"></script>
+  <script type="module" src="src/resident.js?v=0120"></script>
 </body>
 </html>
 

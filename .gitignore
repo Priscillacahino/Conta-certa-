@@ -9,11 +9,15 @@ Thumbs.db
 # Pacotes individuais do morador: nunca publicar
 *.ccresident.json
 
+# Backups reais: nunca publicar
+*.ccbackup.json
+
 # Segredos do backend
 backend/.env
 backend/.env.local
 .env
 .env.local
+.env.production
 *.sqlite3
 backend/staticfiles/
 
@@ -21,4 +25,5 @@ __pycache__/
 *.py[cod]
 .venv/
 backend/.venv/
+backend/.venv-security/
 backend/db.sqlite3

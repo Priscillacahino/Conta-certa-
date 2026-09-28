@@ -4,6 +4,8 @@ from django.contrib.auth.models import User
 from django.db import models
 from django.utils import timezone
 
+MAX_ACTIVE_SESSIONS_PER_PRINCIPAL = 5
+
 def token_hash(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
@@ -57,14 +59,41 @@ class ApiSession(models.Model):
 
     @classmethod
     def issue(cls, *, role, expires_at, user=None, credential=None):
+        now = timezone.now()
+        cls.objects.filter(expires_at__lte=now).delete()
+
         raw = secrets.token_urlsafe(32)
-        cls.objects.create(
+        created = cls.objects.create(
             token_hash=token_hash(raw),
             role=role,
             user=user,
             credential=credential,
             expires_at=expires_at,
         )
+
+        if user is not None:
+            active = cls.objects.filter(
+                role=role,
+                user=user,
+                revoked_at__isnull=True,
+                expires_at__gt=now,
+            ).order_by("-created_at")
+        elif credential is not None:
+            active = cls.objects.filter(
+                role=role,
+                credential=credential,
+                revoked_at__isnull=True,
+                expires_at__gt=now,
+            ).order_by("-created_at")
+        else:
+            active = cls.objects.none()
+
+        stale_ids = list(
+            active.values_list("id", flat=True)[MAX_ACTIVE_SESSIONS_PER_PRINCIPAL:]
+        )
+        if stale_ids:
+            cls.objects.filter(id__in=stale_ids).update(revoked_at=now)
+
         return raw
 
     @property
@@ -137,3 +166,9 @@ class AuditEvent(models.Model):
     action = models.CharField(max_length=100)
     detail = models.JSONField(default=dict)
     created_at = models.DateTimeField(auto_now_add=True)
+
+class AdminLoginThrottle(models.Model):
+    key_hash = models.CharField(max_length=64, unique=True)
+    failed_attempts = models.PositiveSmallIntegerField(default=0)
+    blocked_until = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
