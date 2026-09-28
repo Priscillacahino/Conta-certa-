@@ -8,11 +8,11 @@ const failures = [];
 const passes = [];
 const check = (condition, message) => (condition ? passes : failures).push(message);
 const textFiles = [];
-const binaryExtensions = new Set(['.png','.jpg','.jpeg','.pdf','.zip','.xlsx']);
+const binaryExtensions = new Set(['.png','.jpg','.jpeg','.pdf','.zip','.xlsx','.pyc','.pyo']);
 
 function walk(dir) {
   for (const entry of fs.readdirSync(dir, { withFileTypes:true })) {
-    if (['.git','node_modules','.venv-security'].includes(entry.name)) continue;
+    if (['.git','node_modules','.venv-security','__pycache__'].includes(entry.name)) continue;
     const full = path.join(dir, entry.name);
     const rel = path.relative(root, full).replaceAll('\\','/');
     if (entry.isDirectory()) {
