@@ -1128,6 +1128,7 @@ async function init() {
   $('#download-statement').addEventListener('click', downloadMonthlyStatement);
   $('#save-obligation').addEventListener('click', addObligation);
   $('#generate-monthly').addEventListener('click', generateMonthlyBatch);
+  $('#download-resident-pdf').addEventListener('click', downloadResidentPdfForUnit);
   $('#generate-resident-access').addEventListener('click', generateResidentAccessPackage);
   $('#copy-resident-token').addEventListener('click', copyResidentActivationToken);
   $('#compliance-year').addEventListener('change', async () => { renderLedgerCompliance(); await syncClosingDate(); });
