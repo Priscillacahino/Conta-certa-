@@ -2,7 +2,7 @@
 
 **Gestão compartilhada, contas transparentes.**
 
-[Abrir aplicação](https://priscillacahino.github.io/Conta-certa-/) • [Ver demonstração](https://priscillacahino.github.io/Conta-certa-/demo.html) • [Área do morador](https://priscillacahino.github.io/Conta-certa-/morador.html)
+**Demonstração visual do projeto disponível abaixo.**
 
 O **Conta Certa** é uma PWA mobile-first e offline-first criada especialmente para **residenciais e condomínios pequenos**. O projeto foi pensado para facilitar o controle financeiro desses locais sem criar, quando a realidade e a complexidade da operação não justificarem, a necessidade de contratar uma empresa de administração de condomínio e assumir mais um gasto fixo.
 
@@ -40,7 +40,7 @@ As telas abaixo utilizam **dados fictícios e demonstrativos**, sem exposição 
 
 ### Demonstração curta
 
-**[Abrir a demonstração automática do Conta Certa](https://priscillacahino.github.io/Conta-certa-/demo.html)**
+**Demonstração automática incluída no projeto (`demo.html`).**
 
 A apresentação percorre automaticamente as principais áreas do aplicativo e pode ser pausada ou reiniciada.
 
