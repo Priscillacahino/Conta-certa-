@@ -112,8 +112,8 @@ export const SECURITY_DEFAULTS = Object.freeze({
   iterations: DEFAULT_ITERATIONS,
   minSecretLength: MIN_SECRET_LENGTH,
   maxSecretLength: MAX_SECRET_LENGTH,
-  sessionTtlMs: 10 * 60 * 1000,
-  backgroundGraceMs: 2 * 60 * 1000,
+  sessionTtlMs: 30 * 60 * 1000,
+  backgroundGraceMs: 10 * 60 * 1000,
   maxUnlockAttempts: 5,
   unlockCooldownMs: 30 * 1000,
 });

@@ -35,7 +35,12 @@ function base64ToBytes(value) {
 }
 
 export function normalizePhoneDigits(value) {
-  const digits = String(value ?? '').replace(/\D/g, '');
+  let digits = String(value ?? '').replace(/\D/g, '');
+
+  // Brasil: DDD + número, sem código 55.
+  if ((digits.length === 12 || digits.length === 13) && digits.startsWith('55')) {
+    digits = digits.slice(2);
+  }
   if (digits.length < 10 || digits.length > 15) throw new Error('TELEFONE_INVALIDO');
   return digits;
 }

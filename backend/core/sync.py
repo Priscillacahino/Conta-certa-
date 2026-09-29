@@ -57,6 +57,8 @@ def apply_admin_snapshot(snapshot, *, actor="admin"):
                 if contact.get("type") != "phone" or contact.get("active") is False:
                     continue
                 digits = "".join(ch for ch in str(contact.get("value") or "") if ch.isdigit())
+                if len(digits) in (12, 13) and digits.startswith("55"):
+                    digits = digits[2:]
                 if 10 <= len(digits) <= 15:
                     incoming_phones.add(digits)
                     ResidentCredential.objects.update_or_create(

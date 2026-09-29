@@ -6,11 +6,16 @@ function cleanText(value, label, required = true) {
 
 function normalizePhone(contact) {
   const value = cleanText(contact?.value, 'TELEFONE');
-  const digits = value.replace(/\D/g, '');
+  let digits = value.replace(/\D/g, '');
+
+  // Brasil: DDD + número, sem código 55.
+  if ((digits.length === 12 || digits.length === 13) && digits.startsWith('55')) {
+    digits = digits.slice(2);
+  }
   if (digits.length < 10 || digits.length > 15) throw new Error('TELEFONE_INVALIDO');
   return Object.freeze({
     type: 'phone',
-    value: value.startsWith('+') ? `+${digits}` : digits,
+    value: digits,
     label: cleanText(contact?.label, 'ROTULO_TELEFONE', false) || 'Telefone',
     active: contact?.active !== false,
     purpose: cleanText(contact?.purpose, 'FINALIDADE_TELEFONE', false) || 'contact',

@@ -20,6 +20,11 @@ def _json_error(code, status=400, **extra):
 
 def _phone(value):
     digits = "".join(ch for ch in str(value or "") if ch.isdigit())
+
+    # Brasil: normaliza para DDD + número, sem o código de país 55.
+    if len(digits) in (12, 13) and digits.startswith("55"):
+        digits = digits[2:]
+
     if not 10 <= len(digits) <= 15:
         raise ValueError("TELEFONE_INVALIDO")
     return digits

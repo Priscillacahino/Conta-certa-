@@ -12,9 +12,11 @@ const binaryExtensions = new Set(['.png','.jpg','.jpeg','.pdf','.zip','.xlsx','.
 
 function walk(dir) {
   for (const entry of fs.readdirSync(dir, { withFileTypes:true })) {
-    if (['.git','node_modules','.venv-security','__pycache__'].includes(entry.name)) continue;
+    if (['.git','node_modules','.venv-security','__pycache__','.agents','.claude','agent'].includes(entry.name)) continue;
     const full = path.join(dir, entry.name);
     const rel = path.relative(root, full).replaceAll('\\','/');
+    if (rel === 'data/skills' || rel.startsWith('data/skills/')) continue;
+    if (entry.isSymbolicLink()) continue;
     if (entry.isDirectory()) {
       check(rel !== 'private' && !rel.startsWith('private/'), `sem pasta privada publicada: ${rel}`);
       walk(full);

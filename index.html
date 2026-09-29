@@ -109,7 +109,7 @@
           <div><span class="eyebrow">Acesso administrativo</span><h2>Segurança local</h2></div>
           <span id="security-state" class="status-badge ok">Protegido</span>
         </div>
-        <p>A sessão é bloqueada automaticamente após 10 minutos sem atividade e também pode ser bloqueada manualmente.</p>
+        <p>A sessão é bloqueada automaticamente após 30 minutos sem atividade e também pode ser bloqueada manualmente.</p>
         <div class="actions"><button id="change-security-secret" class="secondary" type="button">Alterar PIN/senha</button><button id="lock-app-card" class="secondary" type="button">Bloquear agora</button></div>
         <p id="security-settings-feedback" class="feedback" role="status"></p>
       </section>
@@ -298,16 +298,16 @@
       <section class="card intro">
         <span class="eyebrow">Consulta somente leitura</span>
         <h2>Acesso do morador</h2>
-        <p>Gere um pacote criptografado específico para cada unidade. O pacote não contém dados individuais das outras unidades.</p>
+        <p>Gere um PDF específico para cada unidade. O documento contém somente as informações permitidas para aquele morador e não inclui dados individuais das outras unidades.</p>
       </section>
       <section class="card">
-        <div class="section-title compact"><div><span class="eyebrow">Primeira ativação</span><h2>Gerar pacote da unidade</h2></div></div>
+        <div class="section-title compact"><div><span class="eyebrow">Documento do morador</span><h2>Baixar PDF da unidade</h2></div></div>
         <div class="form-grid">
           <label>Unidade<select id="resident-access-unit"></select></label>
         </div>
-        <div class="actions"><button id="generate-resident-access" type="button">Gerar arquivo do morador</button></div>
-        <p>O download será um arquivo <code>.ccresident.json</code> criptografado. A chave abaixo aparece somente nesta sessão e deve ser enviada diretamente ao morador.</p>
-        <div class="resident-token-box"><strong>Chave de ativação</strong><code id="resident-access-token">—</code><button id="copy-resident-token" class="secondary" type="button">Copiar chave</button></div>
+        <div class="actions"><button id="download-resident-pdf" type="button">Baixar PDF do morador</button><button id="generate-resident-access" class="secondary" type="button">Gerar contingência offline</button></div>
+        <p>O download principal será um arquivo <code>.pdf</code> comum, sem senha para abertura. A contingência offline criptografada permanece disponível apenas como recurso opcional.</p>
+        <div class="resident-token-box"><strong>Chave da contingência offline</strong><code id="resident-access-token">—</code><button id="copy-resident-token" class="secondary" type="button">Copiar chave</button></div>
         <p id="resident-access-feedback" class="feedback" role="status"></p>
       </section>
       <section class="notice warning-notice"><strong>Importante:</strong> a área do morador é offline-first e não sincroniza automaticamente. Quando houver novos fechamentos ou pagamentos, gere e envie um novo pacote da unidade. O morador atualiza os dados mantendo o mesmo telefone e PIN.</section>

@@ -21,6 +21,7 @@ import {
   applyPayment, outstandingCents, cancelObligation, paymentTimestampFromDate,
 } from './obligations.js';
 import { buildResidentPayload, createActivationToken, encryptResidentPayload } from './resident-access.js';
+import { buildResidentPdf } from './resident-pdf.js';
 import { startAdminAutoSync, getAdminSyncStatus } from './sync-client.js';
 
 const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -767,6 +768,44 @@ async function cancelObligationUi(id) {
   }
 }
 
+
+async function downloadResidentPdfForUnit() {
+  const unitId = $('#resident-access-unit').value;
+  const unit = importedUnits.find(item => String(item.id) === String(unitId));
+
+  if (!unit || !residentialData) {
+    $('#resident-access-feedback').textContent =
+      'Importe o cadastro privado e selecione uma unidade.';
+    return;
+  }
+
+  try {
+    const payload = buildResidentPayload({
+      residential: residentialData,
+      unit,
+      closings: monthClosings,
+      movements,
+      obligations: ledger,
+      payments,
+      certificates,
+    });
+
+    const pdfBytes = buildResidentPdf(payload);
+    const safeUnit = String(unit.label ?? unit.id)
+      .replace(/[^A-Za-z0-9_-]+/g, '_');
+
+    downloadBytes(
+      pdfBytes,
+      `Conta_Certa_Morador_${safeUnit}_${localDateValue()}.pdf`
+    );
+
+    $('#resident-access-feedback').textContent =
+      'PDF do morador gerado. O documento não possui senha e contém somente os dados permitidos para esta unidade.';
+  } catch (error) {
+    $('#resident-access-feedback').textContent =
+      `PDF do morador não gerado: ${error.message}`;
+  }
+}
 async function generateResidentAccessPackage() {
   const unitId = $('#resident-access-unit').value;
   const unit = importedUnits.find(item => String(item.id) === String(unitId));
@@ -789,7 +828,7 @@ async function generateResidentAccessPackage() {
     const safeUnit = String(unit.label ?? unit.id).replace(/[^A-Za-z0-9_-]+/g, '_');
     downloadJson(envelope, `Conta_Certa_Morador_${safeUnit}_${localDateValue()}.ccresident.json`);
     $('#resident-access-token').textContent = activationToken;
-    $('#resident-access-feedback').textContent = 'Arquivo criptografado gerado. Envie o arquivo e a chave de ativação diretamente ao morador. O acesso diário será feito com telefone cadastrado + PIN de 4 dígitos.';
+    $('#resident-access-feedback').textContent = 'Arquivo criptografado gerado. Envie o arquivo e a chave de ativação diretamente ao morador. O acesso diário será feito com telefone cadastrado + PIN de 6 dígitos.';
   } catch (error) {
     $('#resident-access-feedback').textContent = error.message === 'UNIDADE_SEM_TELEFONE_AUTORIZADO'
       ? 'Esta unidade não possui telefone ativo no cadastro privado.'
