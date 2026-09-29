@@ -28,3 +28,8 @@ test('interface possui despesas mensais discriminadas', () => {
     assert.match(html, new RegExp(`id=["']${id}["']`));
   }
 });
+
+test('botão de PDF do morador possui evento de clique', () => {
+  assert.match(html, /id=["']download-resident-pdf["']/);
+  assert.match(app, /\$\(['"]#download-resident-pdf['"]\)\.addEventListener\(['"]click['"],\s*downloadResidentPdfForUnit\)/);
+});
