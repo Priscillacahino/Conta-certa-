@@ -2,11 +2,47 @@
 
 **Gestão compartilhada, contas transparentes.**
 
+[Abrir aplicação](https://priscillacahino.github.io/Conta-certa-/) • [Ver demonstração](https://priscillacahino.github.io/Conta-certa-/demo.html) • [Área do morador](https://priscillacahino.github.io/Conta-certa-/morador.html)
+
 O **Conta Certa** é uma PWA mobile-first e offline-first criada especialmente para **residenciais e condomínios pequenos**. O projeto foi pensado para facilitar o controle financeiro desses locais sem criar, quando a realidade e a complexidade da operação não justificarem, a necessidade de contratar uma empresa de administração de condomínio e assumir mais um gasto fixo.
 
 A proposta é reunir em uma ferramenta simples o que pequenos residenciais normalmente controlam em planilhas: receitas, despesas discriminadas, contribuições mensais, saldo, cobranças, projeções, prestação de contas, backup e adimplência. O Conta Certa não substitui apoio contábil, jurídico ou administrativo quando ele for necessário; ele organiza a rotina financeira cotidiana e melhora a transparência entre os moradores.
 
 > O projeto está em desenvolvimento e não substitui assessoria contábil, jurídica ou administrativa quando ela for necessária. O objetivo é apoiar a gestão financeira cotidiana e a transparência entre os moradores.
+
+## Demonstração visual
+
+As telas abaixo utilizam **dados fictícios e demonstrativos**, sem exposição de informações reais do residencial.
+
+### Visão geral
+
+<p align="center">
+  <img src="assets/readme/visao-geral.svg" width="850" alt="Visão geral do Conta Certa">
+</p>
+
+### Caixa e fechamento mensal
+
+<p align="center">
+  <img src="assets/readme/caixa.svg" width="850" alt="Caixa e fechamento mensal">
+</p>
+
+### Livro de obrigações
+
+<p align="center">
+  <img src="assets/readme/obrigacoes.svg" width="850" alt="Livro de obrigações">
+</p>
+
+### Área do morador
+
+<p align="center">
+  <img src="assets/readme/moradores.svg" width="850" alt="Área do morador">
+</p>
+
+### Demonstração curta
+
+**[Abrir a demonstração automática do Conta Certa](https://priscillacahino.github.io/Conta-certa-/demo.html)**
+
+A apresentação percorre automaticamente as principais áreas do aplicativo e pode ser pausada ou reiniciada.
 
 ## Perfis de uso
 

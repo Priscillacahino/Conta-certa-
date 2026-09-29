@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720">
+<rect width="1200" height="720" fill="#f4f7fb"/>
+
+<rect width="1200" height="108" fill="#183153"/>
+<circle cx="58" cy="54" r="31" fill="#ffffff" opacity=".16"/>
+<text x="108" y="48" font-family="Arial" font-size="17" fill="#b9d0e8" font-weight="700">GESTÃO COMPARTILHADA</text>
+<text x="108" y="79" font-family="Arial" font-size="30" fill="#ffffff" font-weight="700">Conta Certa</text>
+<text x="875" y="64" font-family="Arial" font-size="16" fill="#ffffff">Offline-first • Protegido</text>
+
+<rect x="0" y="108" width="1200" height="58" fill="#ffffff"/>
+<text x="55" y="144" font-family="Arial" font-size="15" fill="#183153" font-weight="700">Visão geral</text>
+<text x="180" y="144" font-family="Arial" font-size="15" fill="#5d6c80">Histórico</text>
+<text x="275" y="144" font-family="Arial" font-size="15" fill="#5d6c80">Projeções</text>
+<text x="375" y="144" font-family="Arial" font-size="15" fill="#5d6c80">Caixa &amp; backup</text>
+<text x="515" y="144" font-family="Arial" font-size="15" fill="#5d6c80">Obrigações</text>
+<text x="620" y="144" font-family="Arial" font-size="15" fill="#5d6c80">Moradores</text>
+<text x="720" y="144" font-family="Arial" font-size="15" fill="#5d6c80">Adimplência</text>
+
+<text x="55" y="215" font-family="Arial" font-size="15" fill="#66758a" font-weight="700">CONSULTA SOMENTE LEITURA</text>
+<text x="55" y="248" font-family="Arial" font-size="29" fill="#183153" font-weight="700">Acesso do morador</text>
+
+<rect x="55" y="285" width="250" height="115" rx="16" fill="#ffffff" stroke="#dfe7f1"/>
+<text x="78" y="320" font-family="Arial" font-size="15" fill="#66758a">Unidade</text>
+<text x="78" y="365" font-family="Arial" font-size="27" fill="#183153" font-weight="700">Apartamento 101</text>
+
+<rect x="325" y="285" width="250" height="115" rx="16" fill="#ffffff" stroke="#dfe7f1"/>
+<text x="348" y="320" font-family="Arial" font-size="15" fill="#66758a">Perfil</text>
+<text x="348" y="365" font-family="Arial" font-size="27" fill="#183153" font-weight="700">Morador</text>
+
+<rect x="595" y="285" width="250" height="115" rx="16" fill="#ffffff" stroke="#dfe7f1"/>
+<text x="618" y="320" font-family="Arial" font-size="15" fill="#66758a">Acesso</text>
+<text x="618" y="365" font-family="Arial" font-size="27" fill="#183153" font-weight="700">Protegido</text>
+
+<rect x="865" y="285" width="280" height="115" rx="16" fill="#ffffff" stroke="#dfe7f1"/>
+<text x="888" y="320" font-family="Arial" font-size="15" fill="#66758a">PIN</text>
+<text x="888" y="365" font-family="Arial" font-size="27" fill="#183153" font-weight="700">6 dígitos</text>
+
+<rect x="55" y="430" width="1090" height="215" rx="18" fill="#ffffff" stroke="#dfe7f1"/>
+<text x="80" y="474" font-family="Arial" font-size="22" fill="#183153" font-weight="700">Documento individual da unidade</text>
+
+<line x1="80" y1="502" x2="1115" y2="502" stroke="#e8edf3"/>
+<text x="82" y="535" font-family="Arial" font-size="17" fill="#42556c">PDF do morador com somente os dados autorizados</text>
+
+<line x1="80" y1="552" x2="1115" y2="552" stroke="#e8edf3"/>
+<text x="82" y="585" font-family="Arial" font-size="17" fill="#42556c">Contingência offline criptografada</text>
+
+<line x1="80" y1="602" x2="1115" y2="602" stroke="#e8edf3"/>
+<text x="82" y="633" font-family="Arial" font-size="17" fill="#42556c">Sem acesso aos dados individuais das demais unidades</text>
+
+<text x="55" y="690" font-family="Arial" font-size="13" fill="#8592a3">
+Demonstração visual com dados fictícios • Conta Certa
+</text>
+</svg>

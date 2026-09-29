@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720">
+<rect width="1200" height="720" fill="#f4f7fb"/>
+
+<rect width="1200" height="108" fill="#183153"/>
+<circle cx="58" cy="54" r="31" fill="#ffffff" opacity=".16"/>
+<text x="108" y="48" font-family="Arial" font-size="17" fill="#b9d0e8" font-weight="700">GESTÃO COMPARTILHADA</text>
+<text x="108" y="79" font-family="Arial" font-size="30" fill="#ffffff" font-weight="700">Conta Certa</text>
+<text x="875" y="64" font-family="Arial" font-size="16" fill="#ffffff">Offline-first • Protegido</text>
+
+<rect x="0" y="108" width="1200" height="58" fill="#ffffff"/>
+<text x="55" y="144" font-family="Arial" font-size="15" fill="#183153" font-weight="700">Visão geral</text>
+<text x="180" y="144" font-family="Arial" font-size="15" fill="#5d6c80">Histórico</text>
+<text x="275" y="144" font-family="Arial" font-size="15" fill="#5d6c80">Projeções</text>
+<text x="375" y="144" font-family="Arial" font-size="15" fill="#5d6c80">Caixa &amp; backup</text>
+<text x="515" y="144" font-family="Arial" font-size="15" fill="#5d6c80">Obrigações</text>
+<text x="620" y="144" font-family="Arial" font-size="15" fill="#5d6c80">Moradores</text>
+<text x="720" y="144" font-family="Arial" font-size="15" fill="#5d6c80">Adimplência</text>
+
+<text x="55" y="215" font-family="Arial" font-size="15" fill="#66758a" font-weight="700">OPERAÇÃO MENSAL</text>
+<text x="55" y="248" font-family="Arial" font-size="29" fill="#183153" font-weight="700">Caixa, fechamento e backup</text>
+
+<rect x="55" y="285" width="250" height="115" rx="16" fill="#ffffff" stroke="#dfe7f1"/>
+<text x="78" y="320" font-family="Arial" font-size="15" fill="#66758a">Saldo anterior</text>
+<text x="78" y="365" font-family="Arial" font-size="27" fill="#183153" font-weight="700">R$ 1.258,72</text>
+
+<rect x="325" y="285" width="250" height="115" rx="16" fill="#ffffff" stroke="#dfe7f1"/>
+<text x="348" y="320" font-family="Arial" font-size="15" fill="#66758a">Receitas</text>
+<text x="348" y="365" font-family="Arial" font-size="27" fill="#183153" font-weight="700">R$ 950,00</text>
+
+<rect x="595" y="285" width="250" height="115" rx="16" fill="#ffffff" stroke="#dfe7f1"/>
+<text x="618" y="320" font-family="Arial" font-size="15" fill="#66758a">Despesas</text>
+<text x="618" y="365" font-family="Arial" font-size="27" fill="#183153" font-weight="700">R$ 605,00</text>
+
+<rect x="865" y="285" width="280" height="115" rx="16" fill="#ffffff" stroke="#dfe7f1"/>
+<text x="888" y="320" font-family="Arial" font-size="15" fill="#66758a">Saldo final</text>
+<text x="888" y="365" font-family="Arial" font-size="27" fill="#183153" font-weight="700">R$ 1.603,72</text>
+
+<rect x="55" y="430" width="1090" height="215" rx="18" fill="#ffffff" stroke="#dfe7f1"/>
+<text x="80" y="474" font-family="Arial" font-size="22" fill="#183153" font-weight="700">Fechamento da competência</text>
+
+<line x1="80" y1="502" x2="1115" y2="502" stroke="#e8edf3"/>
+<text x="82" y="535" font-family="Arial" font-size="17" fill="#42556c">Água • R$ 210,00</text>
+
+<line x1="80" y1="552" x2="1115" y2="552" stroke="#e8edf3"/>
+<text x="82" y="585" font-family="Arial" font-size="17" fill="#42556c">Energia • R$ 285,00</text>
+
+<line x1="80" y1="602" x2="1115" y2="602" stroke="#e8edf3"/>
+<text x="82" y="633" font-family="Arial" font-size="17" fill="#42556c">Outras despesas • R$ 110,00</text>
+
+<text x="55" y="690" font-family="Arial" font-size="13" fill="#8592a3">
+Demonstração visual com dados fictícios • Conta Certa
+</text>
+</svg>
