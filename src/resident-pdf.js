@@ -95,6 +95,7 @@ function buildBodyLines(payload) {
   addWrapped(lines, `Unidade: ${payload.unit?.label ?? payload.unit?.id ?? '-'}`, { bold: true });
   if (payload.unit?.responsibleName) addWrapped(lines, `Responsável: ${payload.unit.responsibleName}`);
   addWrapped(lines, `Gerado em: ${new Date(payload.generatedAt || Date.now()).toLocaleString('pt-BR')}`);
+  if (payload.referenceYear) addWrapped(lines, `Ano de referência: ${payload.referenceYear}`);
   addWrapped(lines, `Saldo mais recente do residencial: ${latest ? money(latest.closingBalanceCents) : '-'}`);
   addWrapped(lines, `Pendência atual da unidade: ${money(outstanding)}`);
   lines.push({ text: '' });
@@ -145,7 +146,7 @@ function pageStream({ payload, lines, pageNumber, pageCount }) {
   content.push('0.10 0.55 0.34 rg 0 790 595.28 5 re f');
   content.push('q 50 0 0 50 38 716 cm /Im1 Do Q');
   drawText(content, 100, 750, 18, payload.residential?.name || 'Residencial', 'F2', [0.04, 0.18, 0.32]);
-  drawText(content, 101, 730, 10.5, 'Conta Certa - Consulta do morador', 'F2', [0.10, 0.55, 0.34]);
+  drawText(content, 101, 730, 10.5, payload.documentTitle || 'Conta Certa - Consulta do morador', 'F2', [0.10, 0.55, 0.34]);
   drawText(content, 101, 714, 8.5, `${payload.unit?.label || 'Unidade'} - ${payload.unit?.responsibleName || ''}`, 'F1', [0.35, 0.43, 0.52]);
   drawText(content, 500, 748, 8, `Pág. ${pageNumber}/${pageCount}`, 'F1', [0.35, 0.43, 0.52]);
   content.push('0.82 0.87 0.91 RG 0.6 w 38 692 m 557 692 l S');

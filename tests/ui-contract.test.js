@@ -33,3 +33,9 @@ test('botão de PDF do morador possui evento de clique', () => {
   assert.match(html, /id=["']download-resident-pdf["']/);
   assert.match(app, /\$\(['"]#download-resident-pdf['"]\)\.addEventListener\(['"]click['"],\s*downloadResidentPdfForUnit\)/);
 });
+test('área do morador separa histórico anual e resumo mensal', () => {
+  assert.match(html, /id=["']resident-access-year["']/);
+  assert.match(html, /id=["']resident-access-competence["']/);
+  assert.match(html, /id=["']download-resident-monthly-pdf["']/);
+  assert.match(app, /\$\(['"]#download-resident-monthly-pdf['"]\)\.addEventListener\(['"]click['"],\s*downloadResidentMonthlyPdfForUnit\)/);
+});

@@ -44,6 +44,15 @@ O pacote é limitado à unidade selecionada. Ele inclui:
 
 O pacote não inclui nomes, telefones, obrigações ou pagamentos individuais de outras unidades.
 
+## PDFs de consulta
+
+O administrador pode gerar dois documentos comuns, sem senha para abertura:
+
+- **Histórico anual:** reúne as informações da unidade referentes ao ano selecionado.
+- **Resumo mensal:** mostra a mensalidade da unidade, taxa extraordinária pendente quando existir, saldo anterior do residencial, receitas, despesas fixas discriminadas, despesas variáveis discriminadas e saldo final da competência.
+
+Para competências históricas importadas, o resumo mensal usa as receitas e despesas discriminadas preservadas na migração.
+
 ## Atualização de dados
 
 A versão v0.12.0 continua offline-first e **não possui sincronização automática entre aparelhos**. Quando os dados mudarem, o administrador deverá gerar um novo pacote da unidade e enviá-lo ao morador. O morador poderá atualizar os dados na própria área de consulta sem trocar seu PIN.

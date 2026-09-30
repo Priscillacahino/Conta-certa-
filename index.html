@@ -298,15 +298,17 @@
       <section class="card intro">
         <span class="eyebrow">Consulta somente leitura</span>
         <h2>Acesso do morador</h2>
-        <p>Gere um PDF específico para cada unidade. O documento contém somente as informações permitidas para aquele morador e não inclui dados individuais das outras unidades.</p>
+        <p>Gere o histórico anual da unidade ou um resumo mensal com pagamentos, taxa extraordinária pendente e visão do caixa do residencial.</p>
       </section>
       <section class="card">
-        <div class="section-title compact"><div><span class="eyebrow">Documento do morador</span><h2>Baixar PDF da unidade</h2></div></div>
+        <div class="section-title compact"><div><span class="eyebrow">Documento do morador</span><h2>Histórico anual e resumo mensal</h2></div></div>
         <div class="form-grid">
           <label>Unidade<select id="resident-access-unit"></select></label>
+          <label>Ano do histórico<input id="resident-access-year" type="number" min="2000" max="2100" step="1"></label>
+          <label>Competência mensal<input id="resident-access-competence" type="month"></label>
         </div>
-        <div class="actions"><button id="download-resident-pdf" type="button">Baixar PDF do morador</button><button id="generate-resident-access" class="secondary" type="button">Gerar contingência offline</button></div>
-        <p>O download principal será um arquivo <code>.pdf</code> comum, sem senha para abertura. A contingência offline criptografada permanece disponível apenas como recurso opcional.</p>
+        <div class="actions"><button id="download-resident-pdf" type="button">Baixar histórico anual</button><button id="download-resident-monthly-pdf" type="button">Baixar resumo mensal</button><button id="generate-resident-access" class="secondary" type="button">Gerar contingência offline</button></div>
+        <p>Os dois downloads principais são arquivos <code>.pdf</code> comuns, sem senha para abertura. O resumo mensal exige competência fechada. A contingência offline criptografada permanece opcional.</p>
         <div class="resident-token-box"><strong>Chave da contingência offline</strong><code id="resident-access-token">—</code><button id="copy-resident-token" class="secondary" type="button">Copiar chave</button></div>
         <p id="resident-access-feedback" class="feedback" role="status"></p>
       </section>
@@ -353,7 +355,7 @@
   </main>
 
   <footer>Conta Certa • v0.12.0 - endurecimento de seguranca</footer>
-  <script type="module" src="src/app.js?v=0122"></script>
+  <script type="module" src="src/app.js?v=0123"></script>
 </body>
 </html>
 

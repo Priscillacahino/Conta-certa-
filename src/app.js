@@ -22,6 +22,7 @@ import {
 } from './obligations.js';
 import { buildResidentPayload, createActivationToken, encryptResidentPayload } from './resident-access.js';
 import { buildResidentPdf } from './resident-pdf.js';
+import { buildResidentMonthlyPdf } from './resident-monthly-pdf.js';
 import { startAdminAutoSync, getAdminSyncStatus } from './sync-client.js';
 
 const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -771,11 +772,12 @@ async function cancelObligationUi(id) {
 
 async function downloadResidentPdfForUnit() {
   const unitId = $('#resident-access-unit').value;
+  const year = Number($('#resident-access-year').value);
   const unit = importedUnits.find(item => String(item.id) === String(unitId));
 
-  if (!unit || !residentialData) {
+  if (!unit || !residentialData || !year) {
     $('#resident-access-feedback').textContent =
-      'Importe o cadastro privado e selecione uma unidade.';
+      'Importe o cadastro privado, selecione uma unidade e informe o ano.';
     return;
   }
 
@@ -790,20 +792,112 @@ async function downloadResidentPdfForUnit() {
       certificates,
     });
 
-    const pdfBytes = buildResidentPdf(payload);
+    const prefix = `${year}-`;
+    const annualPayload = {
+      ...payload,
+      documentTitle: 'Conta Certa - Histórico anual do morador',
+      referenceYear: year,
+      obligations: payload.obligations.filter(item =>
+        Number(item.year) === year || String(item.dueDate ?? '').startsWith(prefix)
+      ),
+      payments: payload.payments.filter(item =>
+        String(item.paidAt ?? '').startsWith(prefix)
+      ),
+      closings: payload.closings.filter(item =>
+        String(item.competence ?? '').startsWith(prefix)
+      ),
+      certificates: payload.certificates.filter(item =>
+        Number(item.year) === year
+      ),
+    };
+
+    const pdfBytes = buildResidentPdf(annualPayload);
     const safeUnit = String(unit.label ?? unit.id)
       .replace(/[^A-Za-z0-9_-]+/g, '_');
 
     downloadBytes(
       pdfBytes,
-      `Conta_Certa_Morador_${safeUnit}_${localDateValue()}.pdf`
+      `Conta_Certa_Historico_Anual_${safeUnit}_${year}.pdf`
     );
 
     $('#resident-access-feedback').textContent =
-      'PDF do morador gerado. O documento não possui senha e contém somente os dados permitidos para esta unidade.';
+      `Histórico anual de ${year} gerado em PDF comum, sem senha para abertura.`;
   } catch (error) {
     $('#resident-access-feedback').textContent =
-      `PDF do morador não gerado: ${error.message}`;
+      `Histórico anual não gerado: ${error.message}`;
+  }
+}
+
+async function downloadResidentMonthlyPdfForUnit() {
+  const unitId = $('#resident-access-unit').value;
+  const competence = $('#resident-access-competence').value;
+  const unit = importedUnits.find(item => String(item.id) === String(unitId));
+
+  if (!unit || !residentialData || !competence) {
+    $('#resident-access-feedback').textContent =
+      'Importe o cadastro privado, selecione a unidade e a competência.';
+    return;
+  }
+
+  const closing = monthClosings.find(item =>
+    item.competence === competence && item.status === 'closed'
+  );
+
+  if (!closing) {
+    $('#resident-access-feedback').textContent =
+      'O resumo mensal exige uma competência já fechada.';
+    return;
+  }
+
+  try {
+    const payload = buildResidentPayload({
+      residential: residentialData,
+      unit,
+      closings: monthClosings,
+      movements,
+      obligations: ledger,
+      payments,
+      certificates,
+    });
+
+    const obligationMap = new Map(
+      ledger.map(item => [String(item.id), item])
+    );
+
+    const extraFeeRevenueCents = payments
+      .filter(payment => {
+        const obligation = obligationMap.get(String(payment.obligationId));
+        return String(payment.paidAt ?? '').startsWith(competence)
+          && obligation?.kind === 'extraordinary_fee';
+      })
+      .reduce((sum, payment) => sum + (Number(payment.amountCents) || 0), 0);
+
+    const historicalPeriod =
+      importedPeriods.find(item => item.id === competence) ?? null;
+
+    const pdfBytes = buildResidentMonthlyPdf({
+      payload,
+      competence,
+      historicalPeriod,
+      extraFeeRevenueCents,
+    });
+
+    const safeUnit = String(unit.label ?? unit.id)
+      .replace(/[^A-Za-z0-9_-]+/g, '_');
+
+    downloadBytes(
+      pdfBytes,
+      `Conta_Certa_Resumo_Mensal_${safeUnit}_${competence}.pdf`
+    );
+
+    $('#resident-access-feedback').textContent =
+      `Resumo mensal de ${competence} gerado com dados da unidade e do caixa do residencial.`;
+  } catch (error) {
+    const message = error.message === 'DETALHE_HISTORICO_MENSAL_INDISPONIVEL'
+      ? 'O fechamento histórico existe, mas não há detalhamento suficiente desta competência para montar o resumo mensal.'
+      : error.message;
+    $('#resident-access-feedback').textContent =
+      `Resumo mensal não gerado: ${message}`;
   }
 }
 async function generateResidentAccessPackage() {
@@ -1093,6 +1187,8 @@ function initializeDates() {
   $('#monthly-due').value = `${competence}-10`;
   $('#monthly-amount').value = '190.00';
   $('#closing-competence').value = competence;
+  $('#resident-access-year').value = String(y);
+  $('#resident-access-competence').value = competence;
   $('#movement-date').value = `${competence}-01`;
   $('#water-expense-date').value = `${competence}-01`;
   $('#energy-expense-date').value = `${competence}-01`;
@@ -1129,6 +1225,7 @@ async function init() {
   $('#save-obligation').addEventListener('click', addObligation);
   $('#generate-monthly').addEventListener('click', generateMonthlyBatch);
   $('#download-resident-pdf').addEventListener('click', downloadResidentPdfForUnit);
+  $('#download-resident-monthly-pdf').addEventListener('click', downloadResidentMonthlyPdfForUnit);
   $('#generate-resident-access').addEventListener('click', generateResidentAccessPackage);
   $('#copy-resident-token').addEventListener('click', copyResidentActivationToken);
   $('#compliance-year').addEventListener('change', async () => { renderLedgerCompliance(); await syncClosingDate(); });
