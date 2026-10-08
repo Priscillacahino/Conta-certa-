@@ -1,5 +1,6 @@
 import { exportDatabaseSnapshot, restoreDatabaseSnapshot } from './db.js';
 
+const DEFAULT_API_URL = 'https://conta-certa-dusky-seven.vercel.app';
 const API_KEY = 'conta-certa-api-base-url';
 const ADMIN_TOKEN_KEY = 'conta-certa-admin-api-token';
 const ADMIN_VERSION_KEY = 'conta-certa-admin-sync-version';
@@ -29,11 +30,16 @@ export function captureApiBaseUrlFromLocation() {
 }
 
 export function getApiBaseUrl() {
-  return localStorage.getItem(API_KEY) || '';
+  return localStorage.getItem(API_KEY) || DEFAULT_API_URL;
 }
 
 export function setApiBaseUrl(value) {
   const normalized = normalizeApiUrl(value);
+  if (normalized !== getApiBaseUrl()) {
+    sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+    sessionStorage.removeItem(RESIDENT_TOKEN_KEY);
+    for (const key of [ADMIN_VERSION_KEY, ADMIN_HASH_KEY, ADMIN_LAST_SYNC_KEY]) localStorage.removeItem(key);
+  }
   localStorage.setItem(API_KEY, normalized);
   return normalized;
 }
@@ -61,6 +67,7 @@ async function api(path, { method='GET', token='', body=null } = {}) {
     cache: 'no-store',
     credentials: 'omit',
     referrerPolicy: 'no-referrer',
+    signal: AbortSignal.timeout(20000),
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -129,14 +136,14 @@ async function sha256Text(text) {
   return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2,'0')).join('');
 }
 
-export async function pullAdminNow({ residentialId='' } = {}) {
+async function pullAdminUnlocked({ residentialId='' } = {}) {
   const token = sessionStorage.getItem(ADMIN_TOKEN_KEY) || '';
   if (!getApiBaseUrl() || !token) throw new Error('API_OU_SESSAO_NAO_CONFIGURADA');
   const suffix = residentialId ? `?residentialId=${encodeURIComponent(residentialId)}` : '';
   const data = await api(`/api/admin/sync/pull/${suffix}`, { token });
   if (!data.snapshot) throw new Error('SNAPSHOT_REMOTO_AUSENTE');
   await restoreDatabaseSnapshot(data.snapshot);
-  const hash = await sha256Text(JSON.stringify(data.snapshot));
+  const hash = await sha256Text(JSON.stringify(data.snapshot.stores));
   localStorage.setItem(ADMIN_VERSION_KEY, String(data.syncVersion || 0));
   localStorage.setItem(ADMIN_HASH_KEY, hash);
   localStorage.setItem(ADMIN_LAST_SYNC_KEY, new Date().toISOString());
@@ -144,12 +151,12 @@ export async function pullAdminNow({ residentialId='' } = {}) {
   return data;
 }
 
-export async function syncAdminNow({ force=false } = {}) {
+async function syncAdminUnlocked({ force=false } = {}) {
   const token = sessionStorage.getItem(ADMIN_TOKEN_KEY) || '';
   if (!getApiBaseUrl()) return { skipped:true, reason:'not-configured' };
   if (!token) return { skipped:true, reason:'login-required' };
-  const snapshot = await exportDatabaseSnapshot('0.12.0');
-  const serialized = JSON.stringify(snapshot);
+  const snapshot = await exportDatabaseSnapshot('0.12.4');
+  const serialized = JSON.stringify(snapshot.stores);
   const hash = await sha256Text(serialized);
   if (!force && hash === localStorage.getItem(ADMIN_HASH_KEY)) {
     return { skipped:true, reason:'unchanged' };
@@ -164,6 +171,18 @@ export async function syncAdminNow({ force=false } = {}) {
   dispatchSync({ ok:true, syncVersion:data.syncVersion });
   return data;
 }
+
+let syncQueue = Promise.resolve();
+function withSyncLock(task) {
+  const run = () => navigator.locks
+    ? navigator.locks.request('conta-certa-admin-sync', task)
+    : task();
+  const pending = syncQueue.then(run, run);
+  syncQueue = pending.catch(() => {});
+  return pending;
+}
+export function syncAdminNow(options = {}) { return withSyncLock(() => syncAdminUnlocked(options)); }
+export function pullAdminNow(options = {}) { return withSyncLock(() => pullAdminUnlocked(options)); }
 
 let timer = null;
 let syncing = false;
@@ -240,9 +259,9 @@ export async function fetchResidentSnapshotRemote() {
   return api('/api/resident/snapshot/', { token });
 }
 
-export async function refreshResidentRemote({ phone='', pin='' } = {}) {
+export async function refreshResidentRemote({ phone='', pin='', authenticate=false } = {}) {
   const existing = sessionStorage.getItem(RESIDENT_TOKEN_KEY) || '';
-  if (existing) {
+  if (existing && !authenticate) {
     try {
       return await fetchResidentSnapshotRemote();
     } catch (error) {

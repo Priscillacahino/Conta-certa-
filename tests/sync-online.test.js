@@ -30,6 +30,6 @@ test('morador atualiza ao retomar conexão e usa sessão remota', () => {
   assert.match(syncClient, /\/api\/resident\/snapshot\//);
 });
 
-test('snapshot administrativo usa versão 0.12.0', () => {
-  assert.match(syncClient, /exportDatabaseSnapshot\('0\.12\.0'\)/);
+test('snapshot administrativo usa versão 0.12.4', () => {
+  assert.match(syncClient, /exportDatabaseSnapshot\('0\.12\.4'\)/);
 });

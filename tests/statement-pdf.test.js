@@ -13,3 +13,7 @@ test('gera prestação de contas PDF somente para competência fechada', () => {
 test('recusa prestação antes do fechamento', () => {
   assert.throws(()=>buildMonthlyStatementPdf({residential:{},closing:{...closing,status:'reopened'}}),/PRESTACAO_EXIGE_COMPETENCIA_FECHADA/);
 });
+
+test('prestação recusa lançamentos ausentes ou divergentes dos totais fechados',()=>{
+  assert.throws(()=>buildMonthlyStatementPdf({residential:{},closing,payments:[],movements:[]}),/DIVERGE_DO_FECHAMENTO/);
+});

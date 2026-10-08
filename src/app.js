@@ -1,3 +1,4 @@
+import { parseMoneyCents } from './finance.js';
 import { evaluateProject } from './projections.js';
 import {
   getSetting, setSetting, saveProjection, listProjections,
@@ -27,7 +28,7 @@ import { startAdminAutoSync, getAdminSyncStatus } from './sync-client.js';
 
 const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const money = cents => brl.format((cents ?? 0) / 100);
-const toCents = value => Math.round((Number(String(value).replace(',', '.')) || 0) * 100);
+const toCents = parseMoneyCents;
 const currentCompetenceKey = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 const localDateValue = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 const $ = selector => document.querySelector(selector);
@@ -255,7 +256,7 @@ async function createEncryptedBackup() {
   const confirmation = $('#backup-confirm').value;
   if (passphrase !== confirmation) { $('#backup-feedback').textContent = 'As senhas do backup não conferem.'; return; }
   try {
-    const snapshot = await exportDatabaseSnapshot('0.12.0');
+    const snapshot = await exportDatabaseSnapshot('0.12.4');
     const envelope = await encryptSnapshot(snapshot, passphrase);
     const stamp = new Date().toISOString().slice(0,10);
     downloadJson(envelope, `Conta_Certa_backup_${stamp}.ccbackup.json`);
@@ -439,7 +440,11 @@ function renderClosingView() {
   }
 
   const prior = previousBalanceFor(competence);
-  if (prior.blocked) {
+  if (existing?.status === 'closed') {
+    openingInput.value = (existing.openingBalanceCents / 100).toFixed(2);
+    openingInput.readOnly = true;
+    $('#opening-balance-source').textContent = 'Saldo inicial preservado no fechamento.';
+  } else if (prior.blocked) {
     openingInput.value = '';
     openingInput.readOnly = true;
     $('#closing-feedback').textContent = `Não é possível fechar ${competence}: a competência anterior (${prior.competence}) está reaberta.`;
@@ -729,8 +734,8 @@ async function payObligation(id) {
   if (answer == null) return;
   const receivedDate = window.prompt('Informe a data em que o pagamento foi recebido (AAAA-MM-DD):', '');
   if (receivedDate == null) return;
-  const paymentCents = toCents(answer);
   try {
+    const paymentCents = toCents(answer);
     const paidAt = paymentTimestampFromDate(receivedDate);
     const updated = applyPayment(obligation, paymentCents, paidAt);
     await registerObligationPayment({
@@ -1195,6 +1200,17 @@ function initializeDates() {
   $('#other-expense-date').value = `${competence}-01`;
 }
 
+function guardedAction(action, feedback) {
+  return async event => {
+    const button = event?.currentTarget;
+    if (button?.disabled) return;
+    if (button && button.tagName === 'BUTTON') button.disabled = true;
+    try { await action(event); }
+    catch (error) { $(feedback).textContent = `Operação não realizada: ${error.message}`; }
+    finally { if (button && button.tagName === 'BUTTON') button.disabled = false; }
+  };
+}
+
 async function init() {
   await initializeSecurity();
   quoteRow({ supplier: 'Orçamento A' });
@@ -1207,23 +1223,23 @@ async function init() {
   await renderProjectionHistory();
   await refreshImportedData();
   $('#add-quote').addEventListener('click', () => quoteRow());
-  $('#calculate').addEventListener('click', () => calculateProjection(false));
-  $('#save-projection').addEventListener('click', () => calculateProjection(true));
+  $('#calculate').addEventListener('click', guardedAction(() => calculateProjection(false), '#save-feedback'));
+  $('#save-projection').addEventListener('click', guardedAction(() => calculateProjection(true), '#save-feedback'));
   $('#import-button').addEventListener('click', importSelectedFile);
   $('#private-profile-import').addEventListener('click', importPrivateProfileFile);
   $('#create-backup').addEventListener('click', createEncryptedBackup);
   $('#restore-backup').addEventListener('click', restoreEncryptedBackup);
   $('#closing-competence').addEventListener('change', async () => { const c=$('#closing-competence').value; $('#movement-date').value=`${c}-01`; $('#water-expense-date').value=`${c}-01`; $('#energy-expense-date').value=`${c}-01`; $('#other-expense-date').value=`${c}-01`; renderClosingView(); });
-  $('#closing-opening-balance').addEventListener('input', renderClosingView);
+  $('#closing-opening-balance').addEventListener('input', guardedAction(renderClosingView, '#closing-feedback'));
   $('#save-movement').addEventListener('click', addCashMovement);
-  $('#save-water-expense').addEventListener('click', () => saveRequiredExpense('Água'));
-  $('#save-energy-expense').addEventListener('click', () => saveRequiredExpense('Energia'));
-  $('#add-other-expense').addEventListener('click', addOtherExpense);
+  $('#save-water-expense').addEventListener('click', guardedAction(() => saveRequiredExpense('Água'), '#closing-feedback'));
+  $('#save-energy-expense').addEventListener('click', guardedAction(() => saveRequiredExpense('Energia'), '#closing-feedback'));
+  $('#add-other-expense').addEventListener('click', guardedAction(addOtherExpense, '#closing-feedback'));
   $('#close-month').addEventListener('click', closeSelectedMonth);
   $('#reopen-month').addEventListener('click', reopenSelectedMonth);
   $('#download-statement').addEventListener('click', downloadMonthlyStatement);
-  $('#save-obligation').addEventListener('click', addObligation);
-  $('#generate-monthly').addEventListener('click', generateMonthlyBatch);
+  $('#save-obligation').addEventListener('click', guardedAction(addObligation, '#obligation-feedback'));
+  $('#generate-monthly').addEventListener('click', guardedAction(generateMonthlyBatch, '#obligation-feedback'));
   $('#download-resident-pdf').addEventListener('click', downloadResidentPdfForUnit);
   $('#download-resident-monthly-pdf').addEventListener('click', downloadResidentMonthlyPdfForUnit);
   $('#generate-resident-access').addEventListener('click', generateResidentAccessPackage);

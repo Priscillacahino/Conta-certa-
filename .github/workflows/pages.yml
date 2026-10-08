@@ -3,10 +3,12 @@ name: Publicar PWA no GitHub Pages
 on:
   push:
     branches: ["main"]
+  pull_request:
+    branches: ["main"]
   workflow_dispatch:
 
 concurrency:
-  group: "pages"
+  group: "pages-${{ github.ref }}"
   cancel-in-progress: true
 
 jobs:
@@ -22,6 +24,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+
+      - name: Instalar dependências de teste
+        run: npm ci
 
       - name: Verificar aplicação
         run: npm run verify
@@ -52,6 +57,7 @@ jobs:
         run: python manage.py test
 
   deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: [verify, backend-test]
     permissions:
       contents: read

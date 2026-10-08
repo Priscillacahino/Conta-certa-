@@ -1,9 +1,17 @@
 from datetime import datetime
+from .validation import validate_admin_snapshot
+
+class SyncConflict(ValueError):
+    def __init__(self, version):
+        self.version = version
+        super().__init__("VERSAO_DESATUALIZADA")
+
 from django.db import transaction
+from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_datetime
 from .models import (
     Residential, Unit, ResidentCredential, Obligation, Payment,
-    Movement, Closing, Certificate, AuditEvent,
+    Movement, Closing, Certificate, AuditEvent, ApiSession, ActivationCode,
 )
 
 def store_values(snapshot, name):
@@ -18,7 +26,8 @@ def store_values(snapshot, name):
 def _int(value):
     return value if isinstance(value, int) else 0
 
-def apply_admin_snapshot(snapshot, *, actor="admin"):
+def apply_admin_snapshot(snapshot, *, actor="admin", base_version=None):
+    rows = validate_admin_snapshot(snapshot)
     residential_values = store_values(snapshot, "residential")
     if not residential_values:
         raise ValueError("SNAPSHOT_SEM_RESIDENCIAL")
@@ -32,6 +41,22 @@ def apply_admin_snapshot(snapshot, *, actor="admin"):
             external_id=external_id,
             defaults={"name": str(r.get("name") or external_id), "address": str(r.get("address") or "")},
         )
+        if base_version is None or base_version != residential.sync_version:
+            raise SyncConflict(residential.sync_version)
+        # Operational records are never silently deleted by a restored/partial client.
+        for model, store, field in ((Obligation, 'obligations', 'id'), (Payment, 'payments', 'id'),
+                                    (Movement, 'transactions', 'id'), (Closing, 'monthClosings', 'id'),
+                                    (Certificate, 'certificates', 'certificateId')):
+            db_field = 'competence' if model is Closing else 'certificate_id' if model is Certificate else 'external_id'
+            incoming = {str(item[field]) for item in rows[store]}
+            existing_ids = set(model.objects.filter(residential=residential).values_list(db_field, flat=True))
+            if existing_ids - incoming:
+                raise ValueError('SINCRONIZACAO_REMOVERIA_REGISTROS_FINANCEIROS')
+        incoming_payments = {str(item['id']): item for item in rows['payments']}
+        for old in Payment.objects.filter(residential=residential):
+            new = incoming_payments[old.external_id]
+            if any(old.payload.get(key) != new.get(key) for key in ('obligationId', 'unitId', 'amountCents', 'paidAt')):
+                raise ValueError('PAGAMENTO_EXISTENTE_NAO_PODE_SER_ALTERADO')
         residential.name = str(r.get("name") or residential.name)
         residential.address = str(r.get("address") or residential.address)
         residential.save()
@@ -65,8 +90,15 @@ def apply_admin_snapshot(snapshot, *, actor="admin"):
                         unit=unit, phone_digits=digits,
                         defaults={"active": True},
                     )
-            ResidentCredential.objects.filter(unit=unit).exclude(phone_digits__in=incoming_phones).update(active=False)
+            removed = ResidentCredential.objects.filter(unit=unit).exclude(phone_digits__in=incoming_phones)
+            ApiSession.objects.filter(credential__in=removed, revoked_at__isnull=True).update(revoked_at=timezone.now())
+            ActivationCode.objects.filter(credential__in=removed, used_at__isnull=True).update(used_at=timezone.now())
+            removed.update(active=False, pin_hash='')
         Unit.objects.filter(residential=residential).exclude(external_id__in=incoming_unit_ids).update(active=False)
+        disabled = ResidentCredential.objects.filter(unit__residential=residential, unit__active=False)
+        ApiSession.objects.filter(credential__in=disabled, revoked_at__isnull=True).update(revoked_at=timezone.now())
+        ActivationCode.objects.filter(credential__in=disabled, used_at__isnull=True).update(used_at=timezone.now())
+        disabled.update(active=False, pin_hash='')
 
         def sync_rows(model, store_name, id_field, defaults_builder):
             incoming = set()
@@ -129,6 +161,8 @@ def apply_admin_snapshot(snapshot, *, actor="admin"):
         Closing.objects.filter(residential=residential).exclude(competence__in=incoming_closings).delete()
 
         incoming_cert_ids = set()
+        if Certificate.objects.filter(certificate_id__in=[i['certificateId'] for i in rows['certificates']]).exclude(residential=residential).exists():
+            raise ValueError('DECLARACAO_PERTENCE_A_OUTRO_RESIDENCIAL')
         for i in store_values(snapshot, "certificates"):
             cid = str(i.get("certificateId") or "").strip()
             if not cid:

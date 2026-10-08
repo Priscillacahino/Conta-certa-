@@ -196,7 +196,7 @@ async function refreshResidentFromServer({ silent = true } = {}) {
   residentRefreshing = true;
   try {
     const fresh = await refreshResidentRemote({ phone: unlockedPhone, pin: unlockedPin });
-    if (String(fresh?.unit?.id ?? '') !== String(residentPayload?.unit?.id ?? '')) {
+    if (String(fresh?.unit?.id ?? '') !== String(residentPayload?.unit?.id ?? '') || String(fresh?.residential?.id ?? '') !== String(residentPayload?.residential?.id ?? '')) {
       throw new Error('ATUALIZACAO_DE_OUTRA_UNIDADE');
     }
     const freshVault = await createResidentVault(fresh, unlockedPhone, unlockedPin);
@@ -208,8 +208,13 @@ async function refreshResidentFromServer({ silent = true } = {}) {
     }
     return true;
   } catch (error) {
-    if (!silent && $('#resident-online-feedback')) {
-      $('#resident-online-feedback').textContent = `Atualização online não concluída: ${error.message}`;
+    if (error.status === 401 || error.status === 403) {
+      await clearResidentRemoteSession({ revoke:false });
+      await clearResidentAccess();
+      lockUi('Acesso online recusado. Solicite uma nova ativação ao administrador.');
+    }
+    if ($('#resident-online-feedback')) {
+      $('#resident-online-feedback').textContent = `Dados não atualizados. Última cópia disponível: ${error.message}`;
     }
     return false;
   } finally {
@@ -237,7 +242,7 @@ async function activateResident(event) {
   const phone = $('#resident-activation-phone').value;
   const pin = $('#resident-new-pin').value;
   const confirm = $('#resident-confirm-pin').value;
-  if (pin !== confirm) { $('#resident-activation-feedback').textContent = 'As senhas de 4 dígitos não conferem.'; return; }
+  if (pin !== confirm) { $('#resident-activation-feedback').textContent = 'As senhas de 6 dígitos não conferem.'; return; }
   try {
     validateResidentPin(pin);
     const normalizedPhone = normalizePhoneDigits(phone);
@@ -276,10 +281,22 @@ async function loginResident(event) {
   }
   try {
     const vault = await getResidentVault();
-    if (!vault) { showGate('activate'); return; }
     const phone = normalizePhoneDigits($('#resident-login-phone').value);
     const pin = validateResidentPin($('#resident-login-pin').value);
-    residentPayload = await openResidentVault(vault, phone, pin);
+    // Online authentication is authoritative, including recovery from a damaged vault.
+    if (getApiBaseUrl() && navigator.onLine) {
+      try {
+        residentPayload = await refreshResidentRemote({ phone, pin, authenticate:true });
+        await setResidentVault(await createResidentVault(residentPayload, phone, pin));
+      } catch (error) {
+        if (error.status && error.status < 500) throw error;
+        if (!vault) throw error;
+        residentPayload = await openResidentVault(vault, phone, pin);
+      }
+    } else {
+      if (!vault) { showGate('activate'); return; }
+      residentPayload = await openResidentVault(vault, phone, pin);
+    }
     unlockedPhone = phone;
     unlockedPin = pin;
     resetThrottle();
@@ -322,8 +339,9 @@ async function updateResidentData(event) {
 
 async function clearAccess() {
   if (!window.confirm('Remover o acesso do morador e os dados locais deste aparelho? Para usar novamente será necessária uma nova ativação.')) return;
+  stopResidentAutoRefresh();
   await clearResidentAccess();
-  clearResidentRemoteSession();
+  await clearResidentRemoteSession();
   resetThrottle();
   residentPayload = null;
   unlockedPhone = '';

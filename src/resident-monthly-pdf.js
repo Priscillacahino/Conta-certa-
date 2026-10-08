@@ -1,6 +1,6 @@
 const brl = new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL' });
 const money = cents => brl.format((Number(cents) || 0) / 100);
-const safeInt = value => Number.isInteger(Number(value)) ? Number(value) : Math.round(Number(value) || 0);
+const safeInt = value => { if (!Number.isSafeInteger(value)) throw new Error('VALOR_FINANCEIRO_INVALIDO'); return value; };
 
 function latin1Text(value) {
   return String(value ?? '')
@@ -77,11 +77,11 @@ function remaining(item) {
 function paymentLinesOperational(payload, competence) {
   const monthlyIds = new Set(
     (payload.obligations ?? [])
-      .filter(item => item.kind === 'monthly_contribution' && obligationCompetence(item) === competence && item.status !== 'cancelled')
+      .filter(item => item.kind === 'monthly_contribution' && item.status !== 'cancelled')
       .map(item => String(item.id))
   );
   return (payload.payments ?? [])
-    .filter(item => monthlyIds.has(String(item.obligationId)))
+    .filter(item => monthlyIds.has(String(item.obligationId)) && String(item.paidAt).slice(0, 7) === competence)
     .sort((a,b)=>String(a.paidAt).localeCompare(String(b.paidAt)))
     .map(item => ({ date:item.paidAt, description:item.description || 'Mensalidade', amountCents:safeInt(item.amountCents) }));
 }
@@ -95,9 +95,9 @@ function paymentLinesHistorical(payload, competence, historicalPeriod) {
 
 export function residentMonthlySummary({ payload, competence, historicalPeriod=null, extraFeeRevenueCents=0 }) {
   if (!payload?.unit?.id || !payload?.residential?.name) throw new Error('DADOS_MORADOR_INVALIDOS');
-  if (!/^\d{4}-\d{2}$/.test(String(competence))) throw new Error('COMPETENCIA_INVALIDA');
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(String(competence))) throw new Error('COMPETENCIA_INVALIDA');
   const closing = (payload.closings ?? []).find(item => item.competence === competence);
-  if (!closing) throw new Error('RESUMO_MENSAL_EXIGE_COMPETENCIA_FECHADA');
+  if (!closing || closing.status === 'reopened') throw new Error('RESUMO_MENSAL_EXIGE_COMPETENCIA_FECHADA');
 
   let expenses = closing.expenses ?? [];
   let monthlyPayments = paymentLinesOperational(payload, competence);
@@ -156,14 +156,15 @@ function bodyLines({ payload, summary, generatedAt }) {
   lines.push({text:''});
 
   lines.push({text:'OBRIGAÇÕES DA UNIDADE',bold:true,size:11});
-  if (!summary.pendingExtra.length) addWrapped(lines,'Nenhuma taxa extraordinária pendente até esta competência.');
+  addWrapped(lines, 'Posição atual das taxas originadas até a competência, na data de geração.');
+  if (!summary.pendingExtra.length) addWrapped(lines,'Nenhuma taxa extraordinária dessas competências permanece pendente.');
   for (const item of summary.pendingExtra) {
     addWrapped(lines, `${formatDate(item.dueDate)} - ${item.description} - Pendente: ${money(item.remainingCents)}`);
   }
   lines.push({text:''});
 
   lines.push({text:'PAGAMENTOS',bold:true,size:11});
-  if (!summary.monthlyPayments.length) addWrapped(lines,'Nenhum pagamento da mensalidade desta competência foi localizado para a unidade.');
+  if (!summary.monthlyPayments.length) addWrapped(lines,'Nenhum pagamento de mensalidade recebido neste mês foi localizado para a unidade.');
   for (const item of summary.monthlyPayments) {
     addWrapped(lines, `${formatDate(item.date)} - ${item.description} - ${money(item.amountCents)}`);
   }

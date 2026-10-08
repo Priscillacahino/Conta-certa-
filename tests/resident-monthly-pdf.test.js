@@ -49,3 +49,18 @@ test('gera PDF comum sem criptografia',()=>{
 test('recusa competência sem fechamento',()=>{
   assert.throws(()=>residentMonthlySummary({payload,competence:'2026-10'}),/RESUMO_MENSAL_EXIGE_COMPETENCIA_FECHADA/);
 });
+
+test('pagamentos mensais seguem o recebimento e incluem mensalidade atrasada',()=>{
+  const changed=structuredClone(payload);
+  changed.obligations.push({id:'old',kind:'monthly_contribution',year:2026,month:8,status:'paid'});
+  changed.payments.push({id:'late',obligationId:'old',amountCents:1000,paidAt:'2026-09-15T12:00:00'});
+  changed.payments.push({id:'future',obligationId:'m1',amountCents:2000,paidAt:'2026-10-01T12:00:00'});
+  const s=residentMonthlySummary({payload:changed,competence:'2026-09'});
+  assert.deepEqual(s.monthlyPayments.map(p=>p.amountCents),[19000,1000]);
+});
+
+test('PDF recusa valores inválidos em vez de convertê-los em zero',()=>{
+  const changed=structuredClone(payload);
+  changed.closings[0].expenses[0].amountCents='30000';
+  assert.throws(()=>residentMonthlySummary({payload:changed,competence:'2026-09'}),/VALOR_FINANCEIRO_INVALIDO/);
+});
