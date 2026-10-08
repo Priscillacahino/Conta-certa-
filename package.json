@@ -1,11 +1,14 @@
 {
   "name": "conta-certa",
-  "version": "0.12.0",
+  "version": "0.12.4",
   "private": true,
   "type": "module",
   "scripts": {
     "test": "node --test",
     "audit:privacy": "node scripts/audit-public-package.mjs",
     "verify": "node --test && node scripts/audit-public-package.mjs"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "^6.2.5"
   }
 }

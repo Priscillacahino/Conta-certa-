@@ -13,7 +13,8 @@ from .models import (
     ActivationCode, AdminLoginThrottle, ApiSession, AuditEvent,
     ResidentCredential, Residential, Unit,
 )
-from .sync import apply_admin_snapshot, resident_snapshot
+from .sync import apply_admin_snapshot, resident_snapshot, SyncConflict
+from .validation import validate_admin_snapshot
 
 def _json_error(code, status=400, **extra):
     return JsonResponse({"error": code, **extra}, status=status)
@@ -31,7 +32,7 @@ def _phone(value):
 
 def _pin(value):
     text = str(value or "")
-    if len(text) != 6 or not text.isdigit():
+    if len(text) != 6 or not text.isascii() or not text.isdigit():
         raise ValueError("PIN_INVALIDO")
     return text
 
@@ -80,7 +81,7 @@ def _retry_after_seconds(throttle):
 def health(request):
     if request.method != "GET":
         return _json_error("METODO_INVALIDO", 405)
-    return JsonResponse({"ok": True, "service": "conta-certa-api", "version": "0.12.0"})
+    return JsonResponse({"ok": True, "service": "conta-certa-api", "version": "0.12.4"})
 
 @csrf_exempt
 def admin_login(request):
@@ -133,30 +134,17 @@ def admin_sync_push(request):
     body = json_body(request)
     snapshot = body.get("snapshot")
     try:
-        base_version = int(body.get("baseVersion") or 0)
-        if base_version < 0:
+        base_version = body.get("baseVersion")
+        if type(base_version) is not int or base_version < 0:
             raise ValueError
     except (TypeError, ValueError):
         return _json_error("VERSAO_BASE_INVALIDA")
 
-    if not isinstance(snapshot, dict):
-        return _json_error("SNAPSHOT_INVALIDO")
-    residential_values = ((snapshot.get("stores") or {}).get("residential") or [])
-    if not residential_values:
-        return _json_error("SNAPSHOT_SEM_RESIDENCIAL")
-    first = residential_values[0].get("value") if isinstance(residential_values[0], dict) else None
-    external_id = str((first or {}).get("id") or "").strip()
-    if not external_id:
-        return _json_error("RESIDENCIAL_SEM_ID")
-
-    existing = Residential.objects.filter(external_id=external_id).first()
-    if existing and base_version != existing.sync_version:
-        return JsonResponse(
-            {"error": "VERSAO_DESATUALIZADA", "serverVersion": existing.sync_version},
-            status=409,
-        )
     try:
-        residential = apply_admin_snapshot(snapshot, actor=request.api_session.user.username)
+        validate_admin_snapshot(snapshot)
+        residential = apply_admin_snapshot(snapshot, actor=request.api_session.user.username, base_version=base_version)
+    except SyncConflict as exc:
+        return _json_error("VERSAO_DESATUALIZADA", 409, serverVersion=exc.version)
     except (ValueError, TypeError) as exc:
         return _json_error(str(exc))
     return JsonResponse({"ok": True, "syncVersion": residential.sync_version})
@@ -250,6 +238,7 @@ def resident_activate(request):
             return _json_error("ATIVACAO_INVALIDA", 401)
 
         credential = activation.credential
+        ApiSession.objects.filter(credential=credential, revoked_at__isnull=True).update(revoked_at=timezone.now())
         credential.pin_hash = make_password(pin)
         credential.failed_attempts = 0
         credential.blocked_until = None

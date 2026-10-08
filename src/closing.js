@@ -1,3 +1,4 @@
+import { paymentTimestampFromDate } from './obligations.js';
 function asInt(value, label) {
   if (!Number.isSafeInteger(value)) throw new TypeError(`${label} deve ser inteiro`);
   return value;
@@ -30,6 +31,7 @@ export function normalizeMovement(input) {
   if (input.amountCents <= 0) throw new Error('VALOR_MOVIMENTO_INVALIDO');
   if (!String(input.description ?? '').trim()) throw new Error('DESCRICAO_MOVIMENTO_OBRIGATORIA');
   const date = String(input.date ?? `${competence}-01`);
+  paymentTimestampFromDate(date);
   if (competenceFromIso(date) !== competence) throw new Error('DATA_FORA_DA_COMPETENCIA');
   return Object.freeze({
     ...input,
@@ -46,6 +48,18 @@ export function normalizeMovement(input) {
 export function summarizeCompetence({ competence, openingBalanceCents, payments = [], movements = [] }) {
   const key = validateCompetence(competence);
   asInt(openingBalanceCents, 'Saldo inicial');
+  const paymentIds = new Set();
+  for (const p of payments) {
+    if (!p.id || paymentIds.has(p.id)) throw new Error('PAGAMENTO_DUPLICADO_OU_SEM_ID');
+    paymentIds.add(p.id);
+    paymentTimestampFromDate(String(p.paidAt).slice(0, 10));
+    if (!Number.isSafeInteger(p.amountCents) || p.amountCents <= 0) throw new Error('PAGAMENTO_INVALIDO');
+  }
+  const movementIds = new Set();
+  for (const m of movements) {
+    if (movementIds.has(m.id)) throw new Error('MOVIMENTO_DUPLICADO');
+    movementIds.add(m.id);
+  }
   const paymentRows = payments.filter(p => competenceFromIso(p.paidAt) === key).map(p => ({
     id: `payment:${p.id}`,
     source: 'payment',
@@ -62,6 +76,7 @@ export function summarizeCompetence({ competence, openingBalanceCents, payments 
   const expenseCents = expenses.reduce((s, r) => s + r.amountCents, 0);
   const resultCents = revenueCents - expenseCents;
   const closingBalanceCents = openingBalanceCents + resultCents;
+  for (const value of [paymentIncomeCents, manualIncomeCents, revenueCents, expenseCents, resultCents, closingBalanceCents]) asInt(value, 'Total');
   return Object.freeze({
     competence: key,
     openingBalanceCents,

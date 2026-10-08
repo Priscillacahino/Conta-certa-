@@ -66,7 +66,8 @@ function activationKeyBytes(token) {
 }
 
 function safeInt(value) {
-  return Number.isSafeInteger(value) ? value : 0;
+  if (!Number.isSafeInteger(value)) throw new Error('VALOR_FINANCEIRO_INVALIDO');
+  return value;
 }
 
 function compactMovement(item) {

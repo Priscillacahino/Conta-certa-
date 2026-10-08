@@ -12,6 +12,7 @@ export function obligationStatus({ amountCents, paidCents = 0, cancelled = false
   if (amountCents < 0 || paidCents < 0) throw new RangeError('Valores não podem ser negativos');
   if (cancelled) return 'cancelled';
   if (paidCents === 0) return 'open';
+  if (paidCents > amountCents) throw new RangeError('PAGAMENTO_SUPERIOR_AO_SALDO');
   if (paidCents < amountCents) return 'partial';
   return 'paid';
 }
@@ -104,6 +105,8 @@ function addMonths(dateString, count) {
 
 export function createInstallmentPlan({ planId, unitId, totalCents, installments, firstDueDate, description = 'Parcelamento' }) {
   if (!planId || !unitId || !firstDueDate) throw new TypeError('Dados do parcelamento incompletos');
+  paymentTimestampFromDate(firstDueDate);
+  if (installments > totalCents) throw new RangeError('PARCELA_MENOR_QUE_UM_CENTAVO');
   const values = splitAmount(totalCents, installments);
   return values.map((amountCents, index) => {
     const dueDate = addMonths(firstDueDate, index);
@@ -127,6 +130,9 @@ export function createInstallmentPlan({ planId, unitId, totalCents, installments
 export function createMonthlyObligations({ units, year, month, amountCents, dueDate, description = 'Contribuição mensal' }) {
   asInt(year, 'Ano'); asInt(month, 'Mês'); asInt(amountCents, 'Valor');
   if (!Array.isArray(units)) throw new TypeError('Unidades inválidas');
+  if (year < 1900 || year > 9999 || month < 1 || month > 12 || amountCents <= 0) throw new RangeError('MENSALIDADE_INVALIDA');
+  paymentTimestampFromDate(dueDate);
+  if (new Set(units.map(u => String(u.id))).size !== units.length) throw new Error('UNIDADE_DUPLICADA');
   return units.filter(u => u.active !== false).map(unit => normalizeObligation({
     id: `mensal-${year}-${String(month).padStart(2, '0')}-${unit.id}`,
     unitId: String(unit.id),

@@ -8,7 +8,10 @@ function base64Binary(value) { if (typeof atob === 'function') return atob(value
 function text(content,x,y,size,value,font='F1',rgb=[0.08,0.15,0.25]) { const [r,g,b]=rgb; content.push(`${r} ${g} ${b} rg BT /${font} ${size} Tf ${x} ${y} Td (${pdfEscape(value)}) Tj ET`); }
 function money(cents) { const n=(cents??0)/100; return `R$ ${n.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`; }
 function competenceLabel(value) { const [y,m]=String(value).split('-'); const names=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez']; return `${names[Number(m)-1] ?? m}/${y}`; }
-function fmtDate(value) { const d=new Date(value); return Number.isNaN(d.getTime()) ? String(value??'') : d.toLocaleDateString('pt-BR'); }
+function fmtDate(value) {
+  const match = String(value ?? '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : String(value ?? '');
+}
 function wrap(value,max=70) { const words=String(value??'').split(/\s+/).filter(Boolean); const out=[]; let line=''; for(const w of words){const n=line?`${line} ${w}`:w;if(n.length>max&&line){out.push(line);line=w;}else line=n;} if(line)out.push(line); return out; }
 
 function movementDescription(category, description) {
@@ -66,6 +69,17 @@ export function buildMonthlyStatementPdf({ residential, closing, payments = [], 
     ...movements.filter(m => closing.movementIds?.includes(m.id) && m.kind === 'income')
   ];
   const expenseRows = movements.filter(m => closing.movementIds?.includes(m.id) && m.kind === 'expense');
+  if (closing.source !== 'historical_import') {
+    const total = rows => rows.reduce((sum, item) => {
+      if (!Number.isSafeInteger(item.amountCents) || item.amountCents <= 0) throw new Error('VALOR_FINANCEIRO_INVALIDO');
+      return sum + item.amountCents;
+    }, 0);
+    if (total(revenueRows) !== closing.revenueCents || total(expenseRows) !== closing.expenseCents ||
+        closing.revenueCents - closing.expenseCents !== closing.resultCents ||
+        closing.openingBalanceCents + closing.resultCents !== closing.closingBalanceCents) {
+      throw new Error('PRESTACAO_DIVERGE_DO_FECHAMENTO');
+    }
+  }
   const allRows=[...revenueRows,...expenseRows].sort((a,b)=>String(a.date).localeCompare(String(b.date)));
   const firstPageCount=20, otherPageCount=31;
   const pages=[];

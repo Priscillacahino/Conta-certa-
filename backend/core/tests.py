@@ -22,7 +22,7 @@ class ApiSmokeTests(TestCase):
         response = self.client.get("/api/health/")
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()["ok"])
-        self.assertEqual(response.json()["version"], "0.12.0")
+        self.assertEqual(response.json()["version"], "0.12.4")
 
     def test_admin_login_requires_staff(self):
         response = self.admin_login()

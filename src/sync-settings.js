@@ -43,7 +43,9 @@ async function logout() {
 async function sync() {
   try {
     const result = await syncAdminNow({ force:true });
-    $('#sync-feedback').textContent = `Sincronização concluída. Versão do servidor: ${result.syncVersion}.`;
+    $('#sync-feedback').textContent = result.skipped
+      ? 'Sincronização não realizada. Configure a API e autentique o administrador.'
+      : `Sincronização concluída. Versão do servidor: ${result.syncVersion}.`;
   } catch (error) {
     $('#sync-feedback').textContent = error.status === 409
       ? 'O servidor possui uma versão mais nova. Não sobrescreva os dados antes de revisar o conflito.'

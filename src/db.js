@@ -1,5 +1,7 @@
+import { validateFinancialStores } from './snapshot-integrity.js';
 import { createSnapshotEnvelope, validateSnapshot } from './backup.js';
-import { competenceFromIso, historicalClosingFromPeriod } from './closing.js';
+import { applyPayment, normalizeObligation, paymentTimestampFromDate } from './obligations.js';
+import { competenceFromIso, historicalClosingFromPeriod, summarizeCompetence, createClosingRecord, requiredExpenseStatus, previousCompetence } from './closing.js';
 
 const DB_NAME = 'conta-certa';
 const DB_VERSION = 6;
@@ -94,17 +96,27 @@ export const listUnits = () => getAll(UNITS);
 export const listPeriods = () => getAll(PERIODS);
 export const getImportMeta = () => getFrom(IMPORT_META, 'current', null);
 export async function saveObligation(obligation) {
-  const db=await openDb();
-  const competence = Number(obligation?.year) && Number(obligation?.month) ? `${obligation.year}-${String(obligation.month).padStart(2,'0')}` : null;
-  if (!competence) return putTo(OBLIGATIONS, obligation);
-  return new Promise((resolve,reject)=>{
-    const tx=db.transaction([OBLIGATIONS,MONTH_CLOSINGS],'readwrite');
-    const req=tx.objectStore(MONTH_CLOSINGS).get(competence);
-    req.onsuccess=()=>{
-      if(req.result?.status==='closed'){tx.abort();reject(new Error('COMPETENCIA_FECHADA'));return;}
-      tx.objectStore(OBLIGATIONS).put(obligation);
+  const normalized = normalizeObligation(obligation);
+  const db = await openDb();
+  const competence = `${normalized.year}-${String(normalized.month).padStart(2, '0')}`;
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([OBLIGATIONS, MONTH_CLOSINGS], 'readwrite');
+    const fail = error => { tx.abort(); reject(error); };
+    const req = tx.objectStore(MONTH_CLOSINGS).get(competence);
+    req.onsuccess = () => {
+      if (req.result?.status === 'closed') return fail(new Error('COMPETENCIA_FECHADA'));
+      const existing = tx.objectStore(OBLIGATIONS).get(normalized.id);
+      existing.onsuccess = () => {
+        const current = existing.result;
+        if (current && (current.paidCents !== normalized.paidCents || current.unitId !== normalized.unitId || current.amountCents !== normalized.amountCents || (normalized.status === 'cancelled' && current.paidCents > 0))) {
+          return fail(new Error('OBRIGACAO_ALTERADA_RECARREGUE'));
+        }
+        tx.objectStore(OBLIGATIONS).put(normalized);
+      };
     };
-    req.onerror=()=>reject(req.error); tx.oncomplete=()=>resolve(obligation); tx.onerror=()=>reject(tx.error);
+    tx.oncomplete = () => resolve(normalized);
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error ?? new Error('GRAVACAO_ABORTADA'));
   });
 }
 export const listObligations = () => getAll(OBLIGATIONS);
@@ -156,42 +168,53 @@ export async function syncHistoricalClosings(periods = [], cutoffCompetence) {
 }
 
 export async function saveObligations(obligations = []) {
+  const normalized = obligations.map(normalizeObligation);
   const db = await openDb();
-  const competences=[...new Set(obligations.map(o => Number(o?.year)&&Number(o?.month) ? `${o.year}-${String(o.month).padStart(2,'0')}` : null).filter(Boolean))];
-  for(const competence of competences){
-    const closing=await getMonthClosing(competence);
-    if(closing?.status==='closed') throw new Error('COMPETENCIA_FECHADA');
-  }
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(OBLIGATIONS, 'readwrite');
-    const store = tx.objectStore(OBLIGATIONS);
-    for (const obligation of obligations) store.put(obligation);
-    tx.oncomplete = () => resolve(obligations);
+    const tx = db.transaction([OBLIGATIONS, MONTH_CLOSINGS], 'readwrite');
+    const fail = error => { tx.abort(); reject(error); };
+    for (const obligation of normalized) {
+      const competence = `${obligation.year}-${String(obligation.month).padStart(2, '0')}`;
+      const req = tx.objectStore(MONTH_CLOSINGS).get(competence);
+      req.onsuccess = () => {
+        if (req.result?.status === 'closed') return fail(new Error('COMPETENCIA_FECHADA'));
+        // A batch creates obligations; it must never replace a paid or cancelled row.
+        tx.objectStore(OBLIGATIONS).add(obligation);
+      };
+    }
+    tx.oncomplete = () => resolve(normalized);
     tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error ?? new Error('GRAVACAO_ABORTADA'));
   });
 }
 
 export async function registerObligationPayment({ obligation, payment }) {
+  if (!payment?.id || !payment.obligationId || payment.obligationId !== obligation?.id) throw new Error('PAGAMENTO_INVALIDO');
+  paymentTimestampFromDate(String(payment.paidAt).slice(0, 10));
+  const competence = competenceFromIso(payment.paidAt);
   const db = await openDb();
   return new Promise((resolve, reject) => {
-    const competence = competenceFromIso(payment?.paidAt);
-    const stores = competence ? [OBLIGATIONS,PAYMENTS,MONTH_CLOSINGS] : [OBLIGATIONS,PAYMENTS];
-    const tx = db.transaction(stores, 'readwrite');
-    const write = () => {
-      tx.objectStore(OBLIGATIONS).put(obligation);
-      tx.objectStore(PAYMENTS).put(payment);
-    };
-    if (!competence) write();
-    else {
-      const req = tx.objectStore(MONTH_CLOSINGS).get(competence);
+    const tx = db.transaction([OBLIGATIONS, PAYMENTS, MONTH_CLOSINGS], 'readwrite');
+    let updated;
+    const fail = error => { tx.abort(); reject(error); };
+    const closing = tx.objectStore(MONTH_CLOSINGS).get(competence);
+    closing.onsuccess = () => {
+      if (closing.result?.status === 'closed') return fail(new Error('COMPETENCIA_FECHADA'));
+      const req = tx.objectStore(OBLIGATIONS).get(payment.obligationId);
       req.onsuccess = () => {
-        if (req.result?.status === 'closed') { tx.abort(); reject(new Error('COMPETENCIA_FECHADA')); return; }
-        write();
+        try {
+          const current = req.result;
+          if (!current || current.unitId !== payment.unitId) throw new Error('OBRIGACAO_INVALIDA');
+          updated = applyPayment(current, payment.amountCents, payment.paidAt);
+          if (updated.paidCents !== obligation.paidCents) throw new Error('SALDO_ALTERADO_RECARREGUE');
+          tx.objectStore(OBLIGATIONS).put(updated);
+          tx.objectStore(PAYMENTS).add(payment);
+        } catch (error) { fail(error); }
       };
-      req.onerror = () => reject(req.error);
-    }
-    tx.oncomplete = () => resolve({ obligation, payment });
+    };
+    tx.oncomplete = () => resolve({ obligation: updated, payment });
     tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error ?? new Error('PAGAMENTO_ABORTADO'));
   });
 }
 
@@ -212,21 +235,63 @@ export async function saveTransaction(movement) {
 
 export async function saveMonthClosing(record) {
   const db = await openDb();
-  return new Promise((resolve,reject)=>{
-    const tx=db.transaction([MONTH_CLOSINGS,CLOSING_EVENTS],'readwrite');
-    tx.objectStore(MONTH_CLOSINGS).put(record);
-    tx.objectStore(CLOSING_EVENTS).add({id:crypto.randomUUID(),competence:record.competence,type:'CLOSED',revision:record.revision,at:record.closedAt,closingBalanceCents:record.closingBalanceCents});
-    tx.oncomplete=()=>resolve(record); tx.onerror=()=>reject(tx.error);
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([MONTH_CLOSINGS, CLOSING_EVENTS, PAYMENTS, TRANSACTIONS], 'readwrite');
+    const values = {};
+    let remaining = 3;
+    let saved;
+    const fail = error => { tx.abort(); reject(error); };
+    for (const name of [MONTH_CLOSINGS, PAYMENTS, TRANSACTIONS]) {
+      const req = tx.objectStore(name).getAll();
+      req.onsuccess = () => {
+        values[name] = req.result;
+        if (--remaining) return;
+        try {
+          const current = values[MONTH_CLOSINGS].find(c => c.competence === record.competence);
+          if (current?.status === 'closed') throw new Error('COMPETENCIA_FECHADA');
+          const prior = values[MONTH_CLOSINGS].find(c => c.competence === previousCompetence(record.competence));
+          if (prior?.status === 'reopened') throw new Error('COMPETENCIA_ANTERIOR_REABERTA');
+          if (values[MONTH_CLOSINGS].some(c => c.competence > record.competence && c.status === 'closed')) throw new Error('REABRA_PRIMEIRO_OS_MESES_POSTERIORES');
+          if (!requiredExpenseStatus(values[TRANSACTIONS], record.competence).complete) throw new Error('DESPESAS_OBRIGATORIAS_AUSENTES');
+          const summary = summarizeCompetence({
+            competence: record.competence,
+            openingBalanceCents: prior?.status === 'closed' ? prior.closingBalanceCents : record.openingBalanceCents,
+            payments: values[PAYMENTS], movements: values[TRANSACTIONS],
+          });
+          saved = createClosingRecord({ summary, previousRecord: current, closedAt: record.closedAt });
+          for (const key of ['openingBalanceCents', 'revenueCents', 'expenseCents', 'closingBalanceCents']) {
+            if (saved[key] !== record[key]) throw new Error('DADOS_ALTERADOS_RECARREGUE_FECHAMENTO');
+          }
+          tx.objectStore(MONTH_CLOSINGS).put(saved);
+          tx.objectStore(CLOSING_EVENTS).add({id:crypto.randomUUID(),competence:saved.competence,type:'CLOSED',revision:saved.revision,at:saved.closedAt,closingBalanceCents:saved.closingBalanceCents});
+        } catch (error) { fail(error); }
+      };
+    }
+    tx.oncomplete = () => resolve(saved);
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error ?? new Error('FECHAMENTO_ABORTADO'));
   });
 }
 
 export async function reopenMonthClosing(record) {
-  const db=await openDb();
-  return new Promise((resolve,reject)=>{
-    const tx=db.transaction([MONTH_CLOSINGS,CLOSING_EVENTS],'readwrite');
-    tx.objectStore(MONTH_CLOSINGS).put(record);
-    tx.objectStore(CLOSING_EVENTS).add({id:crypto.randomUUID(),competence:record.competence,type:'REOPENED',revision:record.revision,at:record.reopenedAt,reason:record.reopenReason});
-    tx.oncomplete=()=>resolve(record); tx.onerror=()=>reject(tx.error);
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([MONTH_CLOSINGS, CLOSING_EVENTS], 'readwrite');
+    const req = tx.objectStore(MONTH_CLOSINGS).getAll();
+    req.onsuccess = () => {
+      try {
+        const current = req.result.find(c => c.competence === record.competence);
+        if (!current || current.status !== 'closed' || current.revision !== record.revision) throw new Error('FECHAMENTO_ALTERADO_RECARREGUE');
+        if (current.source === 'historical_import') throw new Error('FECHAMENTO_HISTORICO_BLOQUEADO');
+        if (req.result.some(c => c.competence > record.competence && c.status === 'closed')) throw new Error('REABRA_PRIMEIRO_OS_MESES_POSTERIORES');
+        if (record.status !== 'reopened' || String(record.reopenReason ?? '').trim().length < 5) throw new Error('MOTIVO_REABERTURA_OBRIGATORIO');
+        tx.objectStore(MONTH_CLOSINGS).put({...current, status:'reopened', reopenedAt:record.reopenedAt, reopenReason:record.reopenReason});
+        tx.objectStore(CLOSING_EVENTS).add({id:crypto.randomUUID(),competence:record.competence,type:'REOPENED',revision:record.revision,at:record.reopenedAt,reason:record.reopenReason});
+      } catch (error) { tx.abort(); reject(error); }
+    };
+    tx.oncomplete = () => resolve(record);
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error ?? new Error('REABERTURA_ABORTADA'));
   });
 }
 
@@ -288,18 +353,33 @@ export async function replaceImportedData(bundle, summary) {
 
 export async function exportDatabaseSnapshot(appVersion = 'unknown') {
   const db=await openDb();
-  const stores={};
-  for(const name of BACKUP_STORES) {
-    const entries=await getAllEntries(db,name);
-    stores[name]=entries.filter(entry => !(name===SETTINGS && entry.key==='securityCredential'));
-  }
+  // One readonly transaction gives a coherent point-in-time backup across all stores.
+  const stores = await new Promise((resolve, reject) => {
+    const tx = db.transaction(BACKUP_STORES, 'readonly');
+    const result = {};
+    for (const name of BACKUP_STORES) {
+      const store = tx.objectStore(name);
+      const values = store.getAll();
+      const keys = store.getAllKeys();
+      keys.onsuccess = () => {
+        result[name] = values.result.map((value, i) => ({key: keys.result[i], value}))
+          .filter(entry => !(name === SETTINGS && entry.key === 'securityCredential'));
+      };
+    }
+    tx.oncomplete = () => resolve(result);
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error ?? new Error('BACKUP_ABORTADO'));
+  });
   return createSnapshotEnvelope(stores,{appVersion});
 }
 
 export async function restoreDatabaseSnapshot(snapshot) {
   validateSnapshot(snapshot);
+  const missing = BACKUP_STORES.filter(name => !Array.isArray(snapshot.stores[name]));
+  if (missing.length) throw new Error(`BACKUP_INCOMPLETO:${missing.join(',')}`);
   const unknown=Object.keys(snapshot.stores).filter(name=>!BACKUP_STORES.includes(name));
   if(unknown.length) throw new Error(`BACKUP_STORE_DESCONHECIDO:${unknown.join(',')}`);
+  validateFinancialStores(snapshot.stores);
   const securityCredential=await getSetting('securityCredential',null);
   const db=await openDb();
   return new Promise((resolve,reject)=>{

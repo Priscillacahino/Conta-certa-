@@ -219,7 +219,7 @@ A v0.11.0 adicionou uma camada de sincronização com **Django + PostgreSQL**, m
 O administrador pode manter a operação local durante a implantação e enviar uma cópia do banco para o servidor. O morador pode usar ativação online e, depois, entrar com telefone cadastrado + PIN de 6 dígitos. Consulte [docs/SINCRONIZACAO_POSTGRESQL.md](docs/SINCRONIZACAO_POSTGRESQL.md).
 ## Status
 
-🚧 **Em desenvolvimento — v0.12.0 (endurecimento de segurança, sessões revogáveis e sincronização protegida).**
+🚧 **Em desenvolvimento — v0.12.4 (endurecimento de segurança, sessões revogáveis e sincronização protegida).**
 
 A planilha histórica real será utilizada para validação e migração dos dados, sem expor nomes de moradores, telefones ou endereço completo nos dados públicos de demonstração.
 
@@ -242,4 +242,11 @@ O comando executa toda a suíte de testes e, em seguida, verifica regras de publ
 
 ## Segurança para produção
 
-A v0.12.0 endurece autenticação, sessões e configuração do backend. Para critérios de implantação segura, consulte [docs/SEGURANCA_PRODUCAO.md](docs/SEGURANCA_PRODUCAO.md) e [docs/PRIVACIDADE_LGPD.md](docs/PRIVACIDADE_LGPD.md).
+A v0.12.4 endurece autenticação, sessões e configuração do backend. Para critérios de implantação segura, consulte [docs/SEGURANCA_PRODUCAO.md](docs/SEGURANCA_PRODUCAO.md) e [docs/PRIVACIDADE_LGPD.md](docs/PRIVACIDADE_LGPD.md).
+
+
+### Revisão de integridade financeira — v0.12.4
+
+Correções de concorrência, fechamento, sincronização, restauração, login e relatórios. Consulte [o relatório de revisão](docs/REVISAO_INTEGRIDADE_2026-10-08.md) para os testes executados, mudanças de comportamento e limites de uso.
+
+Para verificar o frontend: `npm ci` e `npm run verify`.
