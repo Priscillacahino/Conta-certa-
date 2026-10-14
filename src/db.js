@@ -373,13 +373,18 @@ export async function exportDatabaseSnapshot(appVersion = 'unknown') {
   return createSnapshotEnvelope(stores,{appVersion});
 }
 
-export async function restoreDatabaseSnapshot(snapshot) {
+export function validateDatabaseSnapshot(snapshot) {
   validateSnapshot(snapshot);
   const missing = BACKUP_STORES.filter(name => !Array.isArray(snapshot.stores[name]));
   if (missing.length) throw new Error(`BACKUP_INCOMPLETO:${missing.join(',')}`);
   const unknown=Object.keys(snapshot.stores).filter(name=>!BACKUP_STORES.includes(name));
   if(unknown.length) throw new Error(`BACKUP_STORE_DESCONHECIDO:${unknown.join(',')}`);
   validateFinancialStores(snapshot.stores);
+  return true;
+}
+
+export async function restoreDatabaseSnapshot(snapshot) {
+  validateDatabaseSnapshot(snapshot);
   const securityCredential=await getSetting('securityCredential',null);
   const db=await openDb();
   return new Promise((resolve,reject)=>{

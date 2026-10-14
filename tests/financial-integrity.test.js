@@ -4,6 +4,8 @@ import 'fake-indexeddb/auto';
 import { exportDatabaseSnapshot, restoreDatabaseSnapshot, saveObligation, saveObligations, listObligations, listPayments, registerObligationPayment, saveTransaction, saveMonthClosing, reopenMonthClosing, listMonthClosings } from '../src/db.js';
 import { applyPayment, cancelObligation, normalizeObligation } from '../src/obligations.js';
 import { summarizeCompetence, createClosingRecord, reopenClosingRecord, normalizeMovement } from '../src/closing.js';
+import { encryptSnapshot, decryptSnapshot } from '../src/backup.js';
+import { getSetting, setSetting } from '../src/db.js';
 
 const obligation = id => normalizeObligation({id, unitId:'101', kind:'monthly_contribution', amountCents:10000, paidCents:0, dueDate:'2026-10-10', year:2026, month:10});
 const payment = (id, oid, amountCents=5000) => ({id, obligationId:oid, unitId:'101', amountCents, paidAt:'2026-10-08T12:00:00'});
@@ -85,5 +87,29 @@ test('tampered restore cannot replace a valid ledger with inconsistent payments'
   await registerObligationPayment({obligation:applyPayment(o,5000),payment:payment('p1','a')});
   const snapshot=await exportDatabaseSnapshot();snapshot.stores.obligations[0].value.paidCents=8000;
   await assert.rejects(restoreDatabaseSnapshot(snapshot),/TOTAL_PAGAMENTOS_DIVERGENTE/);
+  assert.equal((await listObligations())[0].paidCents,5000);
+});
+
+test('encrypted backup recovers paid ledger and expenses while preserving device credential', async()=>{
+  await reset();
+  const o=obligation('backup-obligation'); await saveObligation(o);
+  await registerObligationPayment({obligation:applyPayment(o,5000),payment:payment('backup-payment',o.id)});
+  await saveTransaction(normalizeMovement({id:'backup-expense',competence:'2026-10',date:'2026-10-08',kind:'expense',category:'Água',description:'Despesa fictícia',amountCents:1200}));
+  await setSetting('securityCredential',{verifier:'original-device-only'});
+  const original=await exportDatabaseSnapshot('0.12.4');
+  const encrypted=await encryptSnapshot(original,'backup-test-only-123');
+  await assert.rejects(decryptSnapshot(encrypted,'wrong-password-123'),/BACKUP_SENHA_OU_INTEGRIDADE_INVALIDA/);
+  assert.equal((await listPayments()).length,1);
+  const restored=await decryptSnapshot(encrypted,'backup-test-only-123');
+  assert.equal(restored.stores.settings.some(entry=>entry.key==='securityCredential'),false);
+  await reset();
+  await setSetting('securityCredential',{verifier:'new-device-only'});
+  await restoreDatabaseSnapshot(restored);
+  const after=await exportDatabaseSnapshot('0.12.4');
+  for(const name of Object.keys(original.stores)) {
+    const withoutRestoreMeta=entries=>entries.filter(entry=>entry.key!=='lastRestoreMeta');
+    assert.deepEqual(withoutRestoreMeta(after.stores[name]),withoutRestoreMeta(original.stores[name]),name);
+  }
+  assert.equal((await getSetting('securityCredential')).verifier,'new-device-only');
   assert.equal((await listObligations())[0].paidCents,5000);
 });

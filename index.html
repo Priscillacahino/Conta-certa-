@@ -10,7 +10,7 @@
   <link rel="manifest" href="manifest.webmanifest?v=0120">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-  <link rel="stylesheet" href="styles.css?v=0120">
+  <link rel="stylesheet" href="styles.css?v=0125">
   <title>Conta Certa</title>
 </head>
 <body class="app-locked">
@@ -242,9 +242,10 @@
         <div class="form-grid">
           <label>Senha do backup<input id="backup-passphrase" type="password" minlength="8" autocomplete="new-password"></label>
           <label>Confirmar senha<input id="backup-confirm" type="password" minlength="8" autocomplete="new-password"></label>
-          <label class="wide">Arquivo para restaurar<input id="restore-backup-file" type="file" accept="application/json,.json,.ccbackup.json"></label>
+          <label class="wide">Arquivo para verificar ou restaurar<input id="restore-backup-file" type="file" accept="application/json,.json,.ccbackup.json"></label>
         </div>
-        <div class="actions"><button id="create-backup" type="button">Gerar backup criptografado</button><button id="restore-backup" class="secondary" type="button">Restaurar backup</button></div>
+        <div class="actions"><button id="create-backup" type="button">Preparar backup criptografado</button><a id="save-backup" class="backup-download" hidden download target="_blank" rel="noopener">Salvar arquivo de backup</a><button id="validate-backup" class="secondary" type="button">Verificar arquivo sem restaurar</button><button id="restore-backup" class="secondary" type="button">Restaurar backup</button></div>
+        <p>Primeiro prepare o backup; depois clique em Salvar arquivo de backup e confirme o download no navegador. Para conferir uma cópia salva, selecione o arquivo, informe a senha usada para criá-lo e clique em Verificar arquivo sem restaurar.</p>
         <p id="backup-feedback" class="feedback" role="status"></p>
       </section>
     </section>
@@ -354,8 +355,8 @@
     </section>
   </main>
 
-  <footer>Conta Certa - v0.12.4 - integridade financeira e sincronizacao protegida</footer>
-  <script type="module" src="src/app.js?v=0123"></script>
+  <footer>Conta Certa - v0.12.5 - backup com verificação protegida</footer>
+  <script type="module" src="src/app.js?v=0125"></script>
 </body>
 </html>
 

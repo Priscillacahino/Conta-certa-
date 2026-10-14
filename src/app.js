@@ -6,7 +6,7 @@ import {
   saveObligation, saveObligations, listObligations, registerObligationPayment,
   listCertificates, saveIssuedCertificate, revokeStoredCertificate, replacePrivateProfile,
   listPayments, listTransactions, saveTransaction, listMonthClosings, saveMonthClosing, reopenMonthClosing,
-  exportDatabaseSnapshot, restoreDatabaseSnapshot, syncHistoricalClosings,
+  exportDatabaseSnapshot, restoreDatabaseSnapshot, validateDatabaseSnapshot, syncHistoricalClosings,
 } from './db.js';
 import { validateImportBundle, summarizeImport, summarizeByYear } from './migration.js';
 import { evaluateAnnualCompliance, lastWeekdayOfYear } from './compliance.js';
@@ -251,29 +251,83 @@ function downloadJson(value, fileName) {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
-async function createEncryptedBackup() {
+let preparedBackupUrl = null;
+
+function discardPreparedBackup() {
+  if (preparedBackupUrl) URL.revokeObjectURL(preparedBackupUrl);
+  preparedBackupUrl = null;
+  const link = $('#save-backup');
+  link.hidden = true;
+  link.removeAttribute('href');
+  link.removeAttribute('download');
+}
+
+async function createEncryptedBackup(event) {
+  event?.preventDefault();
+  const button = $('#create-backup');
+  if (button.disabled) return;
   const passphrase = $('#backup-passphrase').value;
   const confirmation = $('#backup-confirm').value;
   if (passphrase !== confirmation) { $('#backup-feedback').textContent = 'As senhas do backup não conferem.'; return; }
+  discardPreparedBackup();
+  button.disabled = true;
+  $('#backup-feedback').textContent = 'Preparando arquivo criptografado...';
   try {
-    const snapshot = await exportDatabaseSnapshot('0.12.4');
+    const snapshot = await exportDatabaseSnapshot('0.12.5');
     const envelope = await encryptSnapshot(snapshot, passphrase);
-    const stamp = new Date().toISOString().slice(0,10);
-    downloadJson(envelope, `Conta_Certa_backup_${stamp}.ccbackup.json`);
-    $('#backup-feedback').textContent = 'Backup criptografado gerado. Guarde o arquivo e a senha em locais seguros e separados.';
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const blob = new Blob([JSON.stringify(envelope, null, 2)], { type: 'application/json' });
+    preparedBackupUrl = URL.createObjectURL(blob);
+    const link = $('#save-backup');
+    link.href = preparedBackupUrl;
+    link.download = `Conta_Certa_backup_${stamp}.ccbackup.json`;
+    link.hidden = false;
+    $('#backup-confirm').value = '';
+    $('#backup-passphrase').value = '';
+    $('#backup-feedback').textContent = 'Arquivo preparado. Clique em Salvar arquivo de backup e confira se ele apareceu nos downloads. Esta cópia contém os dados do momento da preparação.';
   } catch (error) {
     $('#backup-feedback').textContent = error.message === 'SENHA_BACKUP_MUITO_CURTA' ? 'Use pelo menos 8 caracteres para proteger o backup.' : `Backup não gerado: ${error.message}`;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function readSelectedBackup() {
+  const file = $('#restore-backup-file').files?.[0];
+  if (!file) throw new Error('SELECIONE_ARQUIVO_DE_BACKUP');
+  if (file.size > 140 * 1024 * 1024) throw new Error('BACKUP_ARQUIVO_MUITO_GRANDE');
+  const envelope = JSON.parse(await file.text());
+  const snapshot = await decryptSnapshot(envelope, $('#backup-passphrase').value);
+  validateDatabaseSnapshot(snapshot);
+  return snapshot;
+}
+
+async function verifySelectedBackup(event) {
+  event?.preventDefault();
+  const button = $('#validate-backup');
+  if (button.disabled) return;
+  button.disabled = true;
+  $('#backup-feedback').textContent = 'Verificando senha, integridade e consistência dos registros...';
+  try {
+    const snapshot = await readSelectedBackup();
+    const count = name => snapshot.stores[name].length;
+    $('#backup-feedback').textContent = `Arquivo verificado: ${count('units')} unidade(s), ${count('obligations')} obrigação(ões), ${count('payments')} pagamento(s) e ${count('transactions')} movimento(s). Nenhum dado atual foi substituído. A conferência com extratos e comprovantes continua necessária.`;
+  } catch (error) {
+    $('#backup-feedback').textContent = error.message === 'BACKUP_SENHA_OU_INTEGRIDADE_INVALIDA'
+      ? 'Verificação recusada: senha incorreta ou arquivo alterado/corrompido. Nenhum dado foi substituído.'
+      : `Arquivo não validado: ${error.message}. Nenhum dado foi substituído.`;
+  } finally {
+    $('#backup-passphrase').value = '';
+    button.disabled = false;
   }
 }
 
 async function restoreEncryptedBackup() {
   const file = $('#restore-backup-file').files?.[0];
-  const passphrase = $('#backup-passphrase').value;
   if (!file) { $('#backup-feedback').textContent = 'Selecione um arquivo .ccbackup.json.'; return; }
   if (!window.confirm('A restauração substituirá os dados locais do Conta Certa neste aparelho. A credencial de acesso atual será preservada. Continuar?')) return;
   try {
-    const envelope = JSON.parse(await file.text());
-    const snapshot = await decryptSnapshot(envelope, passphrase);
+    const snapshot = await readSelectedBackup();
     await restoreDatabaseSnapshot(snapshot);
     $('#backup-feedback').textContent = 'Backup restaurado e validado. Recarregando os dados locais...';
     setTimeout(() => window.location.reload(), 500);
@@ -1228,6 +1282,11 @@ async function init() {
   $('#import-button').addEventListener('click', importSelectedFile);
   $('#private-profile-import').addEventListener('click', importPrivateProfileFile);
   $('#create-backup').addEventListener('click', createEncryptedBackup);
+  $('#validate-backup').addEventListener('click', verifySelectedBackup);
+  $('#save-backup').addEventListener('click', () => {
+    $('#backup-feedback').textContent = 'Download solicitado. Confirme o arquivo nos downloads do navegador e guarde uma segunda cópia com a senha separada.';
+  });
+  window.addEventListener('pagehide', discardPreparedBackup);
   $('#restore-backup').addEventListener('click', restoreEncryptedBackup);
   $('#closing-competence').addEventListener('change', async () => { const c=$('#closing-competence').value; $('#movement-date').value=`${c}-01`; $('#water-expense-date').value=`${c}-01`; $('#energy-expense-date').value=`${c}-01`; $('#other-expense-date').value=`${c}-01`; renderClosingView(); });
   $('#closing-opening-balance').addEventListener('input', guardedAction(renderClosingView, '#closing-feedback'));
