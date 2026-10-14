@@ -155,7 +155,7 @@ async function syncAdminUnlocked({ force=false } = {}) {
   const token = sessionStorage.getItem(ADMIN_TOKEN_KEY) || '';
   if (!getApiBaseUrl()) return { skipped:true, reason:'not-configured' };
   if (!token) return { skipped:true, reason:'login-required' };
-  const snapshot = await exportDatabaseSnapshot('0.12.4');
+  const snapshot = await exportDatabaseSnapshot('0.12.5');
   const serialized = JSON.stringify(snapshot.stores);
   const hash = await sha256Text(serialized);
   if (!force && hash === localStorage.getItem(ADMIN_HASH_KEY)) {

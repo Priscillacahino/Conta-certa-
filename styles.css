@@ -35,6 +35,8 @@ input:focus { outline: 3px solid rgba(36,86,132,.15); border-color: #245684; }
 .quote-row { display: grid; grid-template-columns: 1.4fr .8fr auto; gap: 10px; align-items: end; margin-bottom: 10px; }
 button { border: 0; border-radius: 11px; padding: 12px 15px; background: #183153; color: white; font-weight: 800; cursor: pointer; }
 button.secondary { background: #eaf0f7; color: #183153; }
+.backup-download { border-radius: 11px; padding: 12px 15px; background: #183153; color: white; font-weight: 800; text-decoration: none; }
+.backup-download[hidden] { display: none; }
 button.icon-button { width: 43px; height: 43px; padding: 0; background: #f7e8e8; color: #8a2424; font-size: 1.4rem; }
 .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
 .feedback { min-height: 1.2rem; color: #25603e; font-weight: 700; }
