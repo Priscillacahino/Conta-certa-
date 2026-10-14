@@ -14,6 +14,7 @@ import { issueCertificateArtifact, verifyCertificateRecord, base64ToBytes } from
 import { createSecurityCredential, verifySecurityCredential, nextSessionDeadline, unlockThrottleStatus, recordUnlockFailure, resetUnlockThrottle, SECURITY_DEFAULTS } from './security.js';
 import { normalizePrivateProfile, privateProfileSummary } from './private-profile.js';
 import { encryptSnapshot, decryptSnapshot } from './backup.js';
+import { storageProtection } from './storage-protection.js';
 import { normalizeMovement, summarizeCompetence, createClosingRecord, reopenClosingRecord, previousCompetence, requiredExpenseStatus } from './closing.js';
 import { buildMonthlyStatementPdf } from './statement-pdf.js';
 import { escapeHtml } from './sanitize.js';
@@ -237,6 +238,7 @@ async function importPrivateProfileFile() {
     $('#private-profile-state').textContent = 'Carregado';
     $('#private-profile-state').className = 'status-badge ok';
     await refreshImportedData();
+    await renderStorageProtection(true);
   } catch (error) {
     $('#private-profile-feedback').textContent = `Cadastro privado não importado: ${error.message}`;
   }
@@ -273,7 +275,7 @@ async function createEncryptedBackup(event) {
   button.disabled = true;
   $('#backup-feedback').textContent = 'Preparando arquivo criptografado...';
   try {
-    const snapshot = await exportDatabaseSnapshot('0.12.5');
+    const snapshot = await exportDatabaseSnapshot('0.12.6');
     const envelope = await encryptSnapshot(snapshot, passphrase);
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
     const blob = new Blob([JSON.stringify(envelope, null, 2)], { type: 'application/json' });
@@ -311,7 +313,8 @@ async function verifySelectedBackup(event) {
   try {
     const snapshot = await readSelectedBackup();
     const count = name => snapshot.stores[name].length;
-    $('#backup-feedback').textContent = `Arquivo verificado: ${count('units')} unidade(s), ${count('obligations')} obrigação(ões), ${count('payments')} pagamento(s) e ${count('transactions')} movimento(s). Nenhum dado atual foi substituído. A conferência com extratos e comprovantes continua necessária.`;
+    const empty = !count('units') && !count('periods') && !count('obligations') && !count('payments') && !count('transactions');
+    $('#backup-feedback').textContent = `Arquivo verificado: ${count('units')} unidade(s), ${count('periods')} competência(s) históricas, ${count('monthClosings')} fechamento(s), ${count('obligations')} obrigação(ões), ${count('payments')} pagamento(s) e ${count('transactions')} movimento(s). ${empty ? 'Atenção: esta cópia não contém cadastro ou histórico financeiro. ' : ''}Nenhum dado atual foi substituído. A conferência com extratos e comprovantes continua necessária.`;
   } catch (error) {
     $('#backup-feedback').textContent = error.message === 'BACKUP_SENHA_OU_INTEGRIDADE_INVALIDA'
       ? 'Verificação recusada: senha incorreta ou arquivo alterado/corrompido. Nenhum dado foi substituído.'
@@ -1177,6 +1180,13 @@ function renderLedgerCompliance() {
   }));
 }
 
+async function renderStorageProtection(request = false) {
+  const state = await storageProtection({ request });
+  const count = importedUnits.length;
+  const periods = importedPeriods.length;
+  $('#local-storage-status').textContent = `${window.location.origin}: ${count} unidade(s) e ${periods} competência(s) históricas neste navegador. ${state.persistent ? 'Proteção contra remoção automática concedida.' : 'Proteção contra remoção automática não confirmada.'} Guarde backups; outro aparelho ou perfil usa uma cópia local separada.`;
+}
+
 async function refreshImportedData() {
   const [meta, residential, units, periods] = await Promise.all([getImportMeta(), getResidential(), listUnits(), listPeriods()]);
   residentialData = residential;
@@ -1196,6 +1206,7 @@ async function refreshImportedData() {
     $('#import-state').textContent = 'Sem importação';
     renderUnits(units);
     await refreshLedger();
+    await renderStorageProtection();
     return;
   }
   $('#import-state').textContent = 'Base importada'; $('#import-state').className = 'status-badge ok';
@@ -1211,6 +1222,7 @@ async function refreshImportedData() {
   $('#active-units').value = units.filter(u => u.active !== false).length || 5;
   if (unlockedUntil) document.title = normalDocumentTitle();
   await refreshLedger();
+  await renderStorageProtection();
 }
 
 async function importSelectedFile() {
@@ -1230,6 +1242,7 @@ async function importSelectedFile() {
     $('#import-feedback').textContent = `Importação concluída: ${summary.periodCount} competências, ${summary.classifiedCount} classificadas e ${summary.reviewCount} em revisão manual.${privateMeta ? ' O cadastro privado foi preservado.' : ''}`;
     await refreshImportedData();
     await refreshCashbook();
+    await renderStorageProtection(true);
   } catch (error) {
     $('#import-feedback').textContent = `Importação não realizada: ${error.message}`;
   }

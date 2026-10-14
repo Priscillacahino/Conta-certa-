@@ -12,7 +12,7 @@ const payment = (id, oid, amountCents=5000) => ({id, obligationId:oid, unitId:'1
 async function reset() {
   const snapshot = await exportDatabaseSnapshot();
   for (const key of Object.keys(snapshot.stores)) snapshot.stores[key] = [];
-  await restoreDatabaseSnapshot(snapshot);
+  await restoreDatabaseSnapshot(snapshot,{allowEmpty:true});
 }
 
 test('concurrent stale payments cannot overwrite paid balance or double cash', async () => {

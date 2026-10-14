@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.12.6 — persistência e importação protegidas
+
+- importação valida identificadores, duplicidades, competências e conteúdo vazio antes de gravar;
+- falhas durante importação, cadastro privado e restauração abortam a transação inteira;
+- arquivos importados não podem remover silenciosamente unidades ou meses já existentes;
+- backup vazio não substitui uma base local preenchida;
+- recebimento do servidor bloqueia dados locais não sincronizados, remoção de registros e alterações concorrentes;
+- tela informa origem, contagens locais e proteção do navegador contra remoção automática;
+- backup exibe também competências históricas e fechamentos, com aviso para cópia vazia;
+- solicitação de armazenamento persistente após importação, sem prometer proteção contra limpeza manual ou acesso automático em outro dispositivo.
+
 ## v0.12.0 — endurecimento de segurança
 
 - produção Django agora falha sem segredo, PostgreSQL, hosts e origens configurados;

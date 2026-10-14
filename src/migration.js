@@ -20,11 +20,23 @@ export function validateImportBundle(bundle) {
   if (!Array.isArray(bundle.periods)) throw new TypeError('Importação sem períodos');
   if (!Array.isArray(bundle.units)) throw new TypeError('Importação sem unidades');
   if (!bundle.residential || typeof bundle.residential !== 'object') throw new TypeError('Importação sem residencial');
+  if (typeof bundle.residential.id !== 'string' || !bundle.residential.id.trim()) throw new TypeError('RESIDENCIAL_SEM_ID');
+  if (!bundle.units.length || !bundle.periods.length) throw new TypeError('IMPORTACAO_VAZIA');
+  const unitIds = new Set();
+  for (const unit of bundle.units) {
+    if (typeof unit?.id !== 'string' || !unit.id.trim()) throw new TypeError('UNIDADE_SEM_ID');
+    if (unitIds.has(unit.id)) throw new TypeError('UNIDADE_DUPLICADA');
+    unitIds.add(unit.id);
+  }
+  const periodIds = new Set();
 
   for (const period of bundle.periods) {
-    if (!/^\d{4}-\d{2}$/.test(period.id ?? '')) throw new TypeError(`Competência inválida: ${period.id ?? ''}`);
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(period?.id ?? '')) throw new TypeError(`Competência inválida: ${period?.id ?? ''}`);
+    if (periodIds.has(period.id)) throw new TypeError('COMPETENCIA_DUPLICADA');
+    periodIds.add(period.id);
     asInt(period.year, 'Ano');
     asInt(period.month, 'Mês');
+    if (period.id !== `${period.year}-${String(period.month).padStart(2,'0')}`) throw new TypeError('COMPETENCIA_DIVERGENTE');
     if (!period.calculated) throw new TypeError(`Período ${period.id} sem cálculos`);
     asInt(period.calculated.revenueCents, 'Receitas');
     asInt(period.calculated.expenseCents, 'Despesas');

@@ -1,5 +1,7 @@
-import { validateFinancialStores } from './snapshot-integrity.js';
+import { validateFinancialStores, hasOperationalData, validateRemoteReplacement } from './snapshot-integrity.js';
 import { createSnapshotEnvelope, validateSnapshot } from './backup.js';
+import { validateImportBundle, summarizeImport } from './migration.js';
+import { normalizePrivateProfile } from './private-profile.js';
 import { applyPayment, normalizeObligation, paymentTimestampFromDate } from './obligations.js';
 import { competenceFromIso, historicalClosingFromPeriod, summarizeCompetence, createClosingRecord, requiredExpenseStatus, previousCompetence } from './closing.js';
 
@@ -40,8 +42,13 @@ function openDb() {
       if (!db.objectStoreNames.contains(MONTH_CLOSINGS)) db.createObjectStore(MONTH_CLOSINGS, { keyPath: 'id' });
       if (!db.objectStoreNames.contains(CLOSING_EVENTS)) db.createObjectStore(CLOSING_EVENTS, { keyPath: 'id' });
     };
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      const db = request.result;
+      db.onversionchange = () => db.close();
+      resolve(db);
+    };
     request.onerror = () => reject(request.error);
+    request.onblocked = () => reject(new Error('BANCO_BLOQUEADO_FECHE_OUTRAS_ABAS'));
   });
 }
 
@@ -329,26 +336,57 @@ export async function revokeStoredCertificate(certificateId, reason, revokedAt =
   });
 }
 
-export async function replacePrivateProfile(profile) {
-  const db = await openDb();
+function atomicWrite(db, stores, schedule, value) {
   return new Promise((resolve, reject) => {
-    const tx = db.transaction([RESIDENTIAL, UNITS, SETTINGS], 'readwrite');
-    const residential = tx.objectStore(RESIDENTIAL); const units = tx.objectStore(UNITS); const settings = tx.objectStore(SETTINGS);
-    residential.clear(); units.clear(); residential.put(profile.residential); for (const unit of profile.units) units.put(unit);
-    settings.put({importedAt:new Date().toISOString(),residentialId:profile.residential.id,unitCount:profile.units.length}, 'privateProfileMeta');
-    tx.oncomplete = () => resolve(profile); tx.onerror = () => reject(tx.error);
+    const tx = db.transaction(stores, 'readwrite');
+    let failure = null;
+    const fail = error => { failure = error; tx.abort(); };
+    tx.oncomplete = () => resolve(value);
+    tx.onerror = () => reject(failure ?? tx.error);
+    tx.onabort = () => reject(failure ?? tx.error ?? new Error('GRAVACAO_ABORTADA'));
+    try { schedule(tx, fail); } catch (error) { fail(error); }
   });
 }
 
-export async function replaceImportedData(bundle, summary) {
+function checkImportReplacement(tx, residentialId, unitIds, periodIds, write, fail) {
+  const r = tx.objectStore(RESIDENTIAL).getAll();
+  const u = tx.objectStore(UNITS).getAllKeys();
+  const p = periodIds ? tx.objectStore(PERIODS).getAllKeys() : null;
+  const finalRequest = p ?? u;
+  finalRequest.onsuccess = () => {
+    try {
+      if (r.result.some(item => item.id !== residentialId)) throw new Error('IMPORTACAO_OUTRO_RESIDENCIAL');
+      if (u.result.some(id => !unitIds.has(id))) throw new Error('IMPORTACAO_REMOVERIA_UNIDADES');
+      if (p && p.result.some(id => !periodIds.has(id))) throw new Error('IMPORTACAO_REMOVERIA_HISTORICO');
+      write();
+    } catch (error) { fail(error); }
+  };
+}
+
+export async function replacePrivateProfile(input) {
+  const profile = normalizePrivateProfile(structuredClone(input));
   const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction([RESIDENTIAL, UNITS, PERIODS, IMPORT_META], 'readwrite');
+  return atomicWrite(db, [RESIDENTIAL, UNITS, SETTINGS], (tx, fail) => {
+    checkImportReplacement(tx, profile.residential.id, new Set(profile.units.map(u=>u.id)), null, () => {
+    const residential = tx.objectStore(RESIDENTIAL); const units = tx.objectStore(UNITS); const settings = tx.objectStore(SETTINGS);
+    residential.clear(); units.clear(); residential.put(profile.residential); for (const unit of profile.units) units.put(unit);
+    settings.put({importedAt:new Date().toISOString(),residentialId:profile.residential.id,unitCount:profile.units.length}, 'privateProfileMeta');
+    }, fail);
+  }, profile);
+}
+
+export async function replaceImportedData(input) {
+  const bundle = structuredClone(input);
+  validateImportBundle(bundle);
+  const summary = summarizeImport(bundle);
+  const db = await openDb();
+  return atomicWrite(db, [RESIDENTIAL, UNITS, PERIODS, IMPORT_META], (tx, fail) => {
+    checkImportReplacement(tx, bundle.residential.id, new Set(bundle.units.map(u=>u.id)), new Set(bundle.periods.map(p=>p.id)), () => {
     const residential=tx.objectStore(RESIDENTIAL), units=tx.objectStore(UNITS), periods=tx.objectStore(PERIODS), meta=tx.objectStore(IMPORT_META);
     residential.clear(); units.clear(); periods.clear(); residential.put(bundle.residential); for(const unit of bundle.units) units.put(unit); for(const period of bundle.periods) periods.put(period);
     meta.put({...summary,importedAt:new Date().toISOString(),source:bundle.source??null},'current');
-    tx.oncomplete=()=>resolve(); tx.onerror=()=>reject(tx.error);
-  });
+    }, fail);
+  }, summary);
 }
 
 export async function exportDatabaseSnapshot(appVersion = 'unknown') {
@@ -383,12 +421,31 @@ export function validateDatabaseSnapshot(snapshot) {
   return true;
 }
 
-export async function restoreDatabaseSnapshot(snapshot) {
+export async function restoreDatabaseSnapshot(snapshot, { expectedStores=null, protectExisting=false, allowEmpty=false } = {}) {
+  snapshot = structuredClone(snapshot);
   validateDatabaseSnapshot(snapshot);
-  const securityCredential=await getSetting('securityCredential',null);
   const db=await openDb();
-  return new Promise((resolve,reject)=>{
-    const tx=db.transaction(BACKUP_STORES,'readwrite');
+  return atomicWrite(db, BACKUP_STORES, (tx, fail) => {
+    const current = {};
+    let securityCredential = null;
+    for (const name of BACKUP_STORES) {
+      const store = tx.objectStore(name);
+      const values = store.getAll();
+      const keys = store.getAllKeys();
+      keys.onsuccess = () => {
+        try {
+          if (name === SETTINGS) securityCredential = values.result[keys.result.indexOf('securityCredential')] ?? null;
+          current[name] = values.result.map((value,i)=>({key:keys.result[i],value}))
+            .filter(entry=>!(name===SETTINGS && entry.key==='securityCredential'));
+          if (name !== BACKUP_STORES.at(-1)) return;
+          if (expectedStores && JSON.stringify(current) !== JSON.stringify(expectedStores)) throw new Error('DADOS_LOCAIS_ALTERADOS_DURANTE_SINCRONIZACAO');
+          if (!allowEmpty && hasOperationalData(current) && !hasOperationalData(snapshot.stores)) throw new Error('BACKUP_VAZIO_NAO_PODE_APAGAR_DADOS');
+          if (protectExisting) validateRemoteReplacement(current,snapshot.stores);
+          write();
+        } catch (error) { fail(error); }
+      };
+    }
+    const write = () => {
     for(const name of BACKUP_STORES) tx.objectStore(name).clear();
     for(const name of BACKUP_STORES) {
       const store=tx.objectStore(name);
@@ -400,6 +457,6 @@ export async function restoreDatabaseSnapshot(snapshot) {
     }
     if(securityCredential) tx.objectStore(SETTINGS).put(securityCredential,'securityCredential');
     tx.objectStore(SETTINGS).put({restoredAt:new Date().toISOString(),sourceBackupCreatedAt:snapshot.createdAt,sourceAppVersion:snapshot.appVersion},'lastRestoreMeta');
-    tx.oncomplete=()=>resolve(true); tx.onerror=()=>reject(tx.error); tx.onabort=()=>reject(tx.error ?? new Error('RESTAURACAO_ABORTADA'));
-  });
+    };
+  }, true);
 }
