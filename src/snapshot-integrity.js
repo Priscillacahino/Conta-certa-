@@ -6,7 +6,7 @@ export function validateFinancialStores(stores) {
     const seen = new Set();
     for (const entry of entries) {
       if (!entry || !Object.hasOwn(entry, 'key') || !Object.hasOwn(entry, 'value')) throw new Error('BACKUP_REGISTRO_INVALIDO');
-      if (!['string', 'number'].includes(typeof entry.key) || seen.has(String(entry.key))) throw new Error('BACKUP_CHAVE_DUPLICADA_OU_INVALIDA');
+      if (!['string', 'number'].includes(typeof entry.key) || (typeof entry.key === 'number' && !Number.isFinite(entry.key)) || seen.has(String(entry.key))) throw new Error('BACKUP_CHAVE_DUPLICADA_OU_INVALIDA');
       seen.add(String(entry.key));
       if (!['settings', 'importMeta'].includes(name)) {
         const id = name === 'certificates' ? 'certificateId' : 'id';
@@ -39,5 +39,20 @@ export function validateFinancialStores(stores) {
         if (summary[key] !== c[key]) throw new Error('BACKUP_FECHAMENTO_DIVERGENTE');
       }
     }
+  }
+}
+
+export function hasOperationalData(stores) {
+  return ['residential','units','periods','projections','obligations','payments','transactions','monthClosings','certificates'].some(name=>stores[name]?.length);
+}
+
+export function validateRemoteReplacement(current, incoming) {
+  const currentResidential = current.residential?.[0]?.value?.id;
+  const remoteResidential = incoming.residential?.[0]?.value?.id;
+  if (currentResidential && currentResidential !== remoteResidential) throw new Error('SINCRONIZACAO_OUTRO_RESIDENCIAL');
+  for (const [name, entries] of Object.entries(current)) {
+    if (['settings','importMeta'].includes(name)) continue;
+    const incomingKeys = new Set((incoming[name] ?? []).map(entry=>String(entry.key)));
+    if (entries.some(entry=>!incomingKeys.has(String(entry.key)))) throw new Error(`SINCRONIZACAO_REMOVERIA_DADOS_LOCAIS:${name}`);
   }
 }

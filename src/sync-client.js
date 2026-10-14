@@ -1,4 +1,5 @@
 import { exportDatabaseSnapshot, restoreDatabaseSnapshot } from './db.js';
+import { hasOperationalData } from './snapshot-integrity.js';
 
 const DEFAULT_API_URL = 'https://conta-certa-dusky-seven.vercel.app';
 const API_KEY = 'conta-certa-api-base-url';
@@ -142,8 +143,11 @@ async function pullAdminUnlocked({ residentialId='' } = {}) {
   const suffix = residentialId ? `?residentialId=${encodeURIComponent(residentialId)}` : '';
   const data = await api(`/api/admin/sync/pull/${suffix}`, { token });
   if (!data.snapshot) throw new Error('SNAPSHOT_REMOTO_AUSENTE');
-  await restoreDatabaseSnapshot(data.snapshot);
-  const hash = await sha256Text(JSON.stringify(data.snapshot.stores));
+  const local = await exportDatabaseSnapshot();
+  const localHash = await sha256Text(JSON.stringify(local.stores));
+  if (hasOperationalData(local.stores) && localHash !== localStorage.getItem(ADMIN_HASH_KEY)) throw new Error('DADOS_LOCAIS_NAO_SINCRONIZADOS_GERE_BACKUP');
+  await restoreDatabaseSnapshot(data.snapshot, { expectedStores:local.stores, protectExisting:true });
+  const hash = await sha256Text(JSON.stringify((await exportDatabaseSnapshot()).stores));
   localStorage.setItem(ADMIN_VERSION_KEY, String(data.syncVersion || 0));
   localStorage.setItem(ADMIN_HASH_KEY, hash);
   localStorage.setItem(ADMIN_LAST_SYNC_KEY, new Date().toISOString());
@@ -155,7 +159,7 @@ async function syncAdminUnlocked({ force=false } = {}) {
   const token = sessionStorage.getItem(ADMIN_TOKEN_KEY) || '';
   if (!getApiBaseUrl()) return { skipped:true, reason:'not-configured' };
   if (!token) return { skipped:true, reason:'login-required' };
-  const snapshot = await exportDatabaseSnapshot('0.12.5');
+  const snapshot = await exportDatabaseSnapshot('0.12.6');
   const serialized = JSON.stringify(snapshot.stores);
   const hash = await sha256Text(serialized);
   if (!force && hash === localStorage.getItem(ADMIN_HASH_KEY)) {

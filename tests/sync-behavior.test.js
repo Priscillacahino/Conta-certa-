@@ -39,3 +39,24 @@ test('resident authentication never reuses another existing session',async()=>{
   await sync.refreshResidentRemote({phone:'83999999999',pin:'123456',authenticate:true});
   assert.ok(path.endsWith('/api/auth/resident/login/'));
 });
+
+test('remote pull protects unsynchronized imports and cannot remove stored history',async()=>{
+ const db=await import('../src/db.js');
+ sessionStorage.setItem('conta-certa-admin-api-token','test-session');
+ const bundle={residential:{id:'sync-test',name:'Fictício'},units:[{id:'101'}],periods:[{id:'2026-08',year:2026,month:8,calculated:{revenueCents:0,expenseCents:0,closingBalanceCents:0}}]};
+ await db.replaceImportedData(bundle);
+ let remote=await db.exportDatabaseSnapshot('0.12.6');
+ globalThis.fetch=async()=>new Response(JSON.stringify({snapshot:remote,syncVersion:2}),{status:200});
+ const before=(await db.exportDatabaseSnapshot()).stores;
+ await assert.rejects(sync.pullAdminNow(),/DADOS_LOCAIS_NAO_SINCRONIZADOS/);
+ assert.deepEqual((await db.exportDatabaseSnapshot()).stores,before);
+ globalThis.fetch=async()=>new Response(JSON.stringify({syncVersion:3}),{status:200});
+ await sync.syncAdminNow({force:true});
+ remote=await db.exportDatabaseSnapshot('0.12.6');remote.stores.periods=[];
+ globalThis.fetch=async()=>new Response(JSON.stringify({snapshot:remote,syncVersion:4}),{status:200});
+ await assert.rejects(sync.pullAdminNow(),/SINCRONIZACAO_REMOVERIA_DADOS_LOCAIS/);
+ assert.deepEqual((await db.exportDatabaseSnapshot()).stores,before);
+ remote=await db.exportDatabaseSnapshot('0.12.6');
+ await sync.pullAdminNow();
+ assert.equal((await sync.syncAdminNow()).reason,'unchanged');
+});
